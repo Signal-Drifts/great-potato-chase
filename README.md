@@ -3,7 +3,7 @@
 Play as Tibo and approach the Grok Bot pictured in the supplied reference.
 Grok is always visible and its eyes continuously look up, down, left, and right.
 
-When Tibo is exactly three walkable blocks away, Poteto presses her red Reset button.
+When Tibo is exactly three walkable blocks away, Poteto presses a physical red Reset button using her own attached index finger. The cap visibly compresses when she touches it.
 Tibo cries during a three-second reaction scene, then the next level starts automatically.
 After the fifth reset, Poteto wins; Tibo never captures Grok.
 
@@ -11,9 +11,9 @@ After the fifth reset, Poteto wins; Tibo never captures Grok.
 - Five candidate routes each level: four cactus traps and one safe route.
 - Cactus contact costs one of three shared lives and respawns Tibo at the entrance.
 - Timed gates form bottlenecks. Wait until they open.
-- 45 seconds each level, starting on the first successful move.
-- Arrow keys or WASD move, Enter starts/retries, P or Escape pauses.
-- Touch controls, footsteps, wall bumps, trap sounds, and a mute icon.
+- 30 seconds each level, starting on the first successful move.
+- Arrow keys or WASD move, Enter starts/retries, P or Escape pauses, R restarts, and M mutes. On phones, drag on the maze to move. The on-screen control strip has been removed.
+- Footsteps, wall bumps, and trap sounds accompany a continuous original background soundtrack after the first Play interaction. M mutes all audio.
 - Minimal visible UI. Descriptive instructions are available to screen readers.
 
 The three-block trigger uses shortest walking distance around walls and cactus traps,

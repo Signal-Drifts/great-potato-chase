@@ -5,23 +5,15 @@
   const overlay=$('overlay'),steps=[...document.querySelectorAll('.step')],keys=new Set();
   const portrait=new Image();portrait.src='tibo.png';
   const botPortrait=new Image();botPortrait.src='grok.png';
-  const STEP_TIME=.135,TRANSITION_TIME=3.1;
-  let levelIndex=0,found=0,lives=3,remaining=45,maze,player,previous,visited;
+  const STEP_TIME=.135,TRANSITION_TIME=3.1,LEVEL_TIME=30;
+  let levelIndex=0,found=0,lives=3,remaining=LEVEL_TIME,maze,player,previous,visited;
   let phase='intro',paused=false,awaitingMove=true,last=performance.now(),budget=0;
-  let transitionElapsed=0,movedAt=-1000,lastDirection='right',sound=true,audio;
-  let hurtElapsed=0,footsteps=0,lastBump=-1000;
+  let transitionElapsed=0,movedAt=-1000,lastDirection='right',sound=true;
+  let hurtElapsed=0,footsteps=0,lastBump=-1000,resetClicked=false;
   const focusGame=()=>arena.focus({preventScroll:true});
   const announce=text=>$('announcements').textContent=text;
   function beep(frequency,length=.12,wave='triangle',volume=.055) {
-    if(!sound)return;
-    try {
-      audio??=new(window.AudioContext||window.webkitAudioContext)();
-      if(audio.state==='suspended')audio.resume();
-      const osc=audio.createOscillator(),gain=audio.createGain();
-      osc.type=wave;osc.frequency.value=frequency;osc.connect(gain);gain.connect(audio.destination);
-      gain.gain.setValueAtTime(volume,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audio.currentTime+length);
-      osc.start();osc.stop(audio.currentTime+length);
-    }catch(_){/* Sound is optional. */}
+    if(sound)window.GrokAudio.tone(frequency,length,wave,volume);
   }
   function updateHUD() {
     $('level').textContent=String(levelIndex+1).padStart(2,'0');$('found').textContent=found;
@@ -32,7 +24,7 @@
   function draw(now) {
     const progress=Math.min(1,(now-movedAt)/(STEP_TIME*1000));
     window.PotatoArt.draw(ctx,canvas,{maze,player,previous,progress,visited,time:now/1000,
-      moving:phase==='playing'&&!paused&&progress<1,celebrate:phase==='won',elapsed:45-remaining,hurt:phase==='hit',crying:phase==='resetting'},portrait,botPortrait);
+      moving:phase==='playing'&&!paused&&progress<1,celebrate:phase==='won',elapsed:LEVEL_TIME-remaining,hurt:phase==='hit',crying:phase==='resetting'},portrait,botPortrait);
   }
   function resize() {
     const width=Math.max(1,arena.clientWidth),ratio=Math.min(window.devicePixelRatio||1,3);
@@ -42,17 +34,15 @@
     overlay.hidden=false;overlay.dataset.phase=type;
     overlay.classList.toggle('resetting',type==='resetting');overlay.classList.toggle('pranked',type==='won');
     $('overlay-title').textContent=title;$('start').textContent=symbol;$('start').setAttribute('aria-label',label);
-    $('pause').disabled=type!=='paused';
   }
   function prepareLevel() {
     maze=core.createLevel(levelIndex);player={...maze.start};previous={...player};visited=new Set([`${player.x},${player.y}`]);
-    remaining=45;budget=STEP_TIME;keys.clear();awaitingMove=true;paused=false;phase='playing';movedAt=-1000;hurtElapsed=0;footsteps=0;
-    overlay.hidden=true;overlay.classList.remove('resetting','pranked');$('pause').disabled=false;
-    $('pause').setAttribute('aria-label','Pause');$('pause-icon').innerHTML='<path d="M8 5v14M16 5v14"/>';
-    updateHUD();announce(`Level ${levelIndex+1}. Five routes, four cactus traps, one safe route. 45 seconds. Grok is visible. Move to start.`);resize();focusGame();last=performance.now();
+    remaining=LEVEL_TIME;budget=STEP_TIME;keys.clear();awaitingMove=true;paused=false;phase='playing';movedAt=-1000;hurtElapsed=0;footsteps=0;
+    overlay.hidden=true;overlay.dataset.pressState='idle';overlay.classList.remove('resetting','pranked');
+    updateHUD();announce(`Level ${levelIndex+1}. Five routes, four cactus traps, one safe route. 30 seconds. Grok is visible. Move to start.`);resize();focusGame();last=performance.now();
   }
   function reset() {
-    levelIndex=0;found=0;lives=3;$('host').classList.remove('pressing');prepareLevel();beep(520);
+    window.GrokAudio.start();levelIndex=0;found=0;lives=3;$('host').classList.remove('pressing');prepareLevel();beep(520);
   }
   function primaryAction() {
     if(paused)togglePause();
@@ -60,7 +50,7 @@
     else if(['intro','won','lost'].includes(phase))reset();
   }
   function completeLevel() {
-    found++;keys.clear();updateHUD();transitionElapsed=0;phase='resetting';
+    found++;keys.clear();updateHUD();transitionElapsed=0;phase='resetting';resetClicked=false;overlay.dataset.pressState='pressing';
     $('host').classList.add('pressing');showOverlay('RESET!','resetting');
     announce('Tibo is three blocks from Grok. Poteto presses Reset. Tibo starts crying.');
     beep(180,.22,'sawtooth',.045);
@@ -89,7 +79,7 @@
     const hazard=maze.hazards.find(p=>p.x===nx&&p.y===ny);
     if(hazard){hitTrap(hazard,now);return false;}
     const gate=maze.gates.find(p=>p.x===nx&&p.y===ny);
-    if(gate&&!core.isGateOpen(gate,45-remaining)){bump(now,true);return false;}
+    if(gate&&!core.isGateOpen(gate,LEVEL_TIME-remaining)){bump(now,true);return false;}
     previous={...player};player.x=nx;player.y=ny;movedAt=now;awaitingMove=false;
     visited.add(`${player.x},${player.y}`);beep(100+(footsteps++%2)*35,.035,'triangle',.025);
     const distance=core.resetDistance(maze,player);
@@ -102,6 +92,8 @@
       if(hurtElapsed>=.65){player={...maze.start};previous={...player};movedAt=-1000;phase='playing';keys.clear();budget=STEP_TIME;}
     }else if(phase==='resetting') {
       transitionElapsed+=elapsed;
+      if(!resetClicked&&transitionElapsed>=.55){resetClicked=true;beep(80,.05,'square',.05);}
+      if(transitionElapsed>=.85)overlay.dataset.pressState='down';
       if(transitionElapsed>=TRANSITION_TIME){$('host').classList.remove('pressing');if(found===5)finishGame();else{levelIndex++;prepareLevel();}}
     }else if(phase==='playing'&&!paused) {
       if(!awaitingMove){remaining-=elapsed;if(remaining<=0)timeout();else updateHUD();}
@@ -116,10 +108,10 @@
     if(phase!=='playing')return;
     paused=!paused;keys.clear();
     if(paused) {
-      showOverlay('Ⅱ','paused','▶','Resume');$('pause').setAttribute('aria-label','Resume');
-      $('pause-icon').innerHTML='<path d="m8 5 11 7-11 7Z"/>';announce('Paused. Press P or Enter to resume.');
+      showOverlay('Ⅱ','paused','▶','Resume');
+      announce('Paused. Press P or Enter to resume.');
     }else {
-      overlay.hidden=true;$('pause').setAttribute('aria-label','Pause');$('pause-icon').innerHTML='<path d="M8 5v14M16 5v14"/>';
+      overlay.hidden=true;
       focusGame();last=performance.now();announce('Resumed.');
     }
   }
@@ -135,20 +127,26 @@
     if(direction){e.preventDefault();e.stopPropagation();pressDirection(direction,e.repeat);}
     else if(key==='enter'){e.preventDefault();if(!e.repeat)primaryAction();}
     else if((key==='p'||key==='escape')&&!e.repeat){e.preventDefault();togglePause();}
+    else if(key==='m'&&!e.repeat){e.preventDefault();sound=!window.GrokAudio.toggleMute();announce(sound?'Sound on.':'Muted.');}
+    else if(key==='r'&&!e.repeat){e.preventDefault();reset();}
     else if(e.code==='Space')e.preventDefault();
   },{capture:true});
   window.addEventListener('keyup',e=>keys.delete(directionOf(e)),{capture:true});
-  $('start').addEventListener('click',primaryAction);$('pause').addEventListener('click',togglePause);$('restart').addEventListener('click',reset);
-  $('sound').addEventListener('click',()=>{
-    sound=!sound;$('sound').classList.toggle('muted',!sound);$('sound').setAttribute('aria-pressed',String(sound));
-    $('sound').setAttribute('aria-label',sound?'Mute sound':'Unmute sound');beep(650);if(phase==='playing'&&!paused)focusGame();
+  $('start').addEventListener('click',primaryAction);
+  let drag=null,touchDirection=null;
+  arena.addEventListener('pointerdown',e=>{
+    if(e.target.closest('button'))return;focusGame();
+    if(e.pointerType==='mouse')return;
+    drag={id:e.pointerId,x:e.clientX,y:e.clientY};arena.setPointerCapture(e.pointerId);
   });
-  document.querySelectorAll('[data-dir]').forEach(button=>{
-    const direction=button.dataset.dir;
-    button.addEventListener('pointerdown',e=>{e.preventDefault();pressDirection(direction);focusGame();button.setPointerCapture(e.pointerId);});
-    for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,()=>keys.delete(direction));
+  arena.addEventListener('pointermove',e=>{
+    if(!drag||drag.id!==e.pointerId)return;
+    const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)<12)return;
+    const direction=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');
+    if(touchDirection!==direction){if(touchDirection)keys.delete(touchDirection);touchDirection=direction;pressDirection(direction);}
   });
-  arena.addEventListener('pointerdown',e=>{if(!e.target.closest('button'))focusGame();});
+  function endDrag(){if(touchDirection)keys.delete(touchDirection);touchDirection=null;drag=null;}
+  for(const event of ['pointerup','pointercancel','lostpointercapture'])arena.addEventListener(event,endDrag);
   window.addEventListener('blur',()=>{keys.clear();if(phase==='playing'&&!paused)togglePause();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden&&phase==='playing'&&!paused)togglePause();});
   window.addEventListener('resize',resize);portrait.addEventListener('load',()=>draw(performance.now()));botPortrait.addEventListener('load',()=>draw(performance.now()));

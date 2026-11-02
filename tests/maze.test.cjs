@@ -18,40 +18,40 @@ test('five candidate routes, four cactus blockers, one safe route, and increasin
  core.levels.forEach((_,i)=>{const l=core.createLevel(i),distance=core.distances(l.grid,l.start),floors=l.grid.flat().filter(c=>c===0).length;
   assert.equal(routeCount(l),5);assert.equal(routeCount(l,l.safeGrid),1);assert.equal(l.hazards.length,4);assert(l.solutionLength>priorSolution);priorSolution=l.solutionLength;locations.add(`${l.target.x},${l.target.y}`);assert(l.size>priorSize&&floors>priorFloor);
   for(let y=0;y<l.size;y++)for(let x=0;x<l.size;x++){if(l.grid[y][x]===0)assert(distance[y][x]>=0);if(x===0||y===0||x===l.size-1||y===l.size-1)assert.equal(l.grid[y][x],1);}
-  assert(route(l).length*.15<45);assert.deepEqual(core.createLevel(i),l);priorSize=l.size;priorFloor=floors;
+  assert(route(l).length*.15<30);assert.deepEqual(core.createLevel(i),l);priorSize=l.size;priorFloor=floors;
  });assert.equal(locations.size,5);
 });
 function harness(){
- let now=0,nextFrame,rendered;const handlers={},elements={},sounds=[];
+ let now=0,nextFrame,rendered;const handlers={},elements={},sounds=[];let musicStarts=0,muted=false;
  const doc={activeElement:null,hidden:false,getElementById:id=>el(id),querySelectorAll:s=>s==='.step'?Array.from({length:5},(_,i)=>el(`step-${i}`)):[],addEventListener(){}};
  function el(id){return elements[id]??={id,textContent:'',hidden:false,disabled:false,clientWidth:500,width:500,height:500,dataset:{},attrs:{},listeners:{},classList:{toggle(){},add(){},remove(){}},setAttribute(k,v){this.attrs[k]=v;},addEventListener(k,fn){this.listeners[k]=fn;},focus(){doc.activeElement=this;},getContext(){return{};}};}
  class MockImage{constructor(){this.complete=true;this.naturalWidth=1024;this.naturalHeight=1536;}addEventListener(){}}
  class MockAudio {constructor(){this.state='running';this.currentTime=0;this.destination={};}createOscillator(){return{frequency:{value:0},type:'',connect(){},start(){sounds.push({frequency:this.frequency.value,type:this.type});},stop(){}};}createGain(){return{gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}};}}
- const context={window:{AudioContext:MockAudio,PotatoMaze:core,PotatoArt:{draw(_ctx,_canvas,state,actor,bot){rendered={...state,actorSource:actor?.src,botSource:bot?.src,player:{...state.player}};}},devicePixelRatio:1,addEventListener:(k,fn)=>handlers[k]=fn},document:doc,Image:MockImage,performance:{now:()=>now},requestAnimationFrame:fn=>(nextFrame=fn,1)};
+ const context={window:{GrokAudio:{start(){musicStarts++;},tone(frequency,length,type){sounds.push({frequency,type});},toggleMute(){muted=!muted;return muted;}},AudioContext:MockAudio,PotatoMaze:core,PotatoArt:{draw(_ctx,_canvas,state,actor,bot){rendered={...state,actorSource:actor?.src,botSource:bot?.src,player:{...state.player}};}},devicePixelRatio:1,addEventListener:(k,fn)=>handlers[k]=fn},document:doc,Image:MockImage,performance:{now:()=>now},requestAnimationFrame:fn=>(nextFrame=fn,1)};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../game.js'),'utf8'),context);
  const key=(type,value,repeat=false)=>handlers[type]({key:value,code:value,repeat,preventDefault(){},stopPropagation(){}});
  const advance=ms=>{now+=ms;const cb=nextFrame;nextFrame=null;if(cb)cb(now);};
  const map={up:'ArrowUp',right:'ArrowRight',down:'ArrowDown',left:'ArrowLeft'};
  function rawStep(d){key('keydown',map[d]);advance(145);key('keyup',map[d]);}
  function step(d){const before={...rendered.player};key('keydown',map[d]);for(let i=0;i<35;i++){advance(145);if(rendered.player.x!==before.x||rendered.player.y!==before.y)break;}key('keyup',map[d]);}
- return{el,key,advance,step,rawStep,sounds,doc,click:id=>el(id).listeners.click(),rendered:()=>rendered};
+ return{el,key,advance,step,rawStep,sounds,doc,musicStarts:()=>musicStarts,click:id=>el(id).listeners.click(),rendered:()=>rendered};
 }
 test('five near-captures trigger Poteto resets and end with Tibo crying',()=>{
- const game=harness();game.key('keydown','Enter');game.advance(10000);assert.equal(game.el('time').textContent,45);assert.equal(game.doc.activeElement.id,'arena');
+ const game=harness();game.key('keydown','Enter');game.advance(10000);assert.equal(game.el('time').textContent,30);assert.equal(game.doc.activeElement.id,'arena');
  for(let i=0;i<5;i++){
   assert.equal(game.el('level').textContent,String(i+1).padStart(2,'0'));
   for(const d of route(core.createLevel(i)))game.step(d);
   assert.equal(game.el('found').textContent,i+1);assert.equal(game.el('overlay').hidden,false);
-  if(i<4){assert.equal(game.el('overlay').dataset.phase,'resetting');game.advance(3300);assert.equal(game.el('overlay').hidden,true);assert.equal(game.el('time').textContent,45);game.key('keydown','ArrowDown',true);game.advance(10000);assert.equal(game.el('time').textContent,45);}
+  if(i<4){assert.equal(game.el('overlay').dataset.phase,'resetting');game.advance(3300);assert.equal(game.el('overlay').hidden,true);assert.equal(game.el('time').textContent,30);game.key('keydown','ArrowDown',true);game.advance(10000);assert.equal(game.el('time').textContent,30);}
  }
  game.advance(3300);assert.equal(game.el('overlay').dataset.phase,'won');assert.equal(game.el('overlay-title').textContent,'Poteto wins');game.click('start');assert.equal(game.el('found').textContent,0);assert.equal(game.el('lives').attrs['aria-label'],'3 lives');
 });
 test('walls block Tibo; pause freezes time; timeouts and retry preserve the rules',()=>{
- const game=harness();game.click('start');game.rawStep('left');game.advance(5000);assert.equal(game.el('time').textContent,45);assert.equal(game.rendered().player.x,1);
+ const game=harness();game.click('start');game.rawStep('left');game.advance(5000);assert.equal(game.el('time').textContent,30);assert.equal(game.rendered().player.x,1);
  for(let attempt=0;attempt<3;attempt++){
   game.step(route(core.createLevel(0))[0]);game.key('keydown','p');const time=game.el('time').textContent;game.advance(10000);assert.equal(game.el('time').textContent,time);
   game.key('keydown','p');game.advance(46000);assert.equal(game.el('lives').attrs['aria-label'],`${2-attempt} lives`);assert.equal(game.el('time').textContent,0);
-  if(attempt<2){game.click('start');assert.equal(game.el('time').textContent,45);assert.equal(game.rendered().player.x,1);}
+  if(attempt<2){game.click('start');assert.equal(game.el('time').textContent,30);assert.equal(game.rendered().player.x,1);}
  }
  assert.equal(game.el('overlay').dataset.phase,'lost');assert.equal(game.el('start').attrs['aria-label'],'Restart game');
 });
@@ -103,8 +103,8 @@ test('reset happens exactly three walkable blocks away, not four, and lasts long
  assert.equal(core.resetDistance(level,game.rendered().player),4);assert.equal(game.el('overlay').hidden,true);assert.equal(game.el('found').textContent,0);
  game.step(directions.at(-1));assert.equal(core.resetDistance(level,game.rendered().player),3);
  assert.equal(game.el('overlay').dataset.phase,'resetting');assert.equal(game.el('overlay-title').textContent,'RESET!');assert(game.rendered().crying);
- game.advance(1000);assert.equal(game.el('overlay').dataset.phase,'resetting');
- game.advance(2200);assert.equal(game.el('level').textContent,'02');assert.equal(game.el('time').textContent,45);assert.equal(game.el('overlay').hidden,true);
+ game.advance(1000);assert.equal(game.el('overlay').dataset.phase,'resetting');assert.equal(game.el('overlay').dataset.pressState,'down');assert(game.sounds.some(s=>s.frequency===80));
+ game.advance(2200);assert.equal(game.el('level').textContent,'02');assert.equal(game.el('time').textContent,30);assert.equal(game.el('overlay').hidden,true);
 });
 test('nearby cells across walls do not trigger resets, and Grok eyes visit all four directions',()=>{
  let foundAcrossWall=false;
@@ -115,4 +115,26 @@ test('nearby cells across walls do not trigger resets, and Grok eyes visit all f
  assert(foundAcrossWall,'Use walking distance, not just visual distance through walls');
  const window={};vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../renderer.js'),'utf8'),{window});const offset=window.PotatoArt.eyeOffset;
  assert(offset(0).y>0);assert(offset(Math.PI/4).x>0);assert(offset(Math.PI/2).y<0);assert(offset(3*Math.PI/4).x<0);
+});
+
+test('background music starts with play and removed buttons remain absent from the markup',()=>{
+ const game=harness();assert.equal(game.musicStarts(),0);game.key('keydown','Enter');assert.equal(game.musicStarts(),1);assert.equal(game.el('time').textContent,30);
+ const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+ for(const id of ['restart','pause','sound'])assert(!html.includes(`id="${id}"`));
+ assert(!html.includes('class="pad"'));assert(!html.includes('class="bottom"'));assert(!html.includes('☞'));assert(html.includes('mushroom-button'));
+ game.key('keydown','m');game.key('keydown','m');game.key('keydown','r');assert.equal(game.el('time').textContent,30);
+});
+test('the original soundtrack schedules continuously, starts once, and supports keyboard mute',()=>{
+ let timer,context,intervals=0;const notes=[],gainValues=[];
+ class Audio {
+  constructor(){this.state='running';this.currentTime=0;this.destination={};context=this;}
+  createGain(){return{gain:{value:0,setValueAtTime(v){gainValues.push(v);},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}};}
+  createOscillator(){return{frequency:{value:0},connect(){},start(time){notes.push({hz:this.frequency.value,time});},stop(){}};}
+ }
+ const window={AudioContext:Audio,addEventListener(){},setInterval(fn){timer=fn;intervals++;return 1;},clearInterval(){}};
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../music.js'),'utf8'),{window});
+ window.GrokAudio.start();window.GrokAudio.start();assert.equal(intervals,1);const first=notes.length;
+ for(let i=0;i<50;i++){context.currentTime+=.25;timer();}assert(notes.length>first+50,'Music must continue past its first complete phrase');
+ assert.equal(window.GrokAudio.toggleMute(),true);assert.equal(gainValues.at(-1),0);
+ assert.equal(window.GrokAudio.toggleMute(),false);assert.equal(gainValues.at(-1),.8);
 });
