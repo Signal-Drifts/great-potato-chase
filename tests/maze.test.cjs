@@ -24,19 +24,19 @@ test('five candidate routes, four cactus blockers, one safe route, and increasin
  });assert.equal(locations.size,5);
 });
 function harness(storage=memoryStorage(),search=''){
- let now=0,nextFrame,rendered;const handlers={},elements={},sounds=[];let musicStarts=0,muted=false,musicActive=false;
+ let now=0,nextFrame,rendered;const handlers={},elements={},sounds=[];let musicStarts=0,muted=false,musicActive=false,cryCount=0,cryStops=0;
  const doc={activeElement:null,hidden:false,getElementById:id=>['found','total-levels'].includes(id)?null:el(id),querySelectorAll:s=>s==='.step'?Array.from({length:5},(_,i)=>el(`step-${i}`)):[],addEventListener(){}};
  function el(id){return elements[id]??={id,textContent:'',hidden:false,disabled:false,clientWidth:500,width:500,height:500,dataset:{},attrs:{},listeners:{},classList:{toggle(){},add(){},remove(){}},setAttribute(k,v){this.attrs[k]=v;},addEventListener(k,fn){this.listeners[k]=fn;},focus(){doc.activeElement=this;},getContext(){return{};}};}
  class MockImage{constructor(){this.complete=true;this.naturalWidth=1024;this.naturalHeight=1536;}addEventListener(){}}
  class MockAudio {constructor(){this.state='running';this.currentTime=0;this.destination={};}createOscillator(){return{frequency:{value:0},type:'',connect(){},start(){sounds.push({frequency:this.frequency.value,type:this.type});},stop(){}};}createGain(){return{gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}};}}
- const context={window:{location:{search},GrokRuns:runs.createSelector(storage),GrokAudio:{unlock(){musicStarts++;},setActive(value){musicActive=Boolean(value);},tone(frequency,length,type){sounds.push({frequency,type});},toggleMute(){muted=!muted;return muted;}},AudioContext:MockAudio,PotatoMaze:core,PotatoArt:{draw(_ctx,_canvas,state,actor,bot){rendered={...state,actorSource:actor?.src,botSource:bot?.src,player:{...state.player}};}},devicePixelRatio:1,addEventListener:(k,fn)=>handlers[k]=fn},document:doc,Image:MockImage,performance:{now:()=>now},requestAnimationFrame:fn=>(nextFrame=fn,1)};
+ const context={window:{location:{search},GrokRuns:runs.createSelector(storage),GrokAudio:{cry(){cryCount++;},stopCry(){cryStops++;},unlock(){musicStarts++;},setActive(value){musicActive=Boolean(value);},tone(frequency,length,type){sounds.push({frequency,type});},toggleMute(){muted=!muted;return muted;}},AudioContext:MockAudio,PotatoMaze:core,PotatoArt:{draw(_ctx,_canvas,state,actor,bot){rendered={...state,actorSource:actor?.src,botSource:bot?.src,player:{...state.player}};}},devicePixelRatio:1,addEventListener:(k,fn)=>handlers[k]=fn},document:doc,Image:MockImage,performance:{now:()=>now},requestAnimationFrame:fn=>(nextFrame=fn,1)};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../game.js'),'utf8'),context);
  const key=(type,value,repeat=false)=>handlers[type]({key:value,code:value,repeat,preventDefault(){},stopPropagation(){}});
  const advance=ms=>{now+=ms;const cb=nextFrame;nextFrame=null;if(cb)cb(now);};
  const map={up:'ArrowUp',right:'ArrowRight',down:'ArrowDown',left:'ArrowLeft'};
  function rawStep(d){key('keydown',map[d]);advance(145);key('keyup',map[d]);}
  function step(d){const before={...rendered.player};key('keydown',map[d]);for(let i=0;i<35;i++){advance(145);if(rendered.player.x!==before.x||rendered.player.y!==before.y)break;}key('keyup',map[d]);}
- return{el,key,advance,step,rawStep,sounds,doc,musicStarts:()=>musicStarts,musicActive:()=>musicActive,blur:()=>handlers.blur(),click:id=>el(id).listeners.click(),rendered:()=>rendered};
+ return{el,key,advance,step,rawStep,sounds,doc,musicStarts:()=>musicStarts,musicActive:()=>musicActive,cryCount:()=>cryCount,cryStops:()=>cryStops,blur:()=>handlers.blur(),click:id=>el(id).listeners.click(),rendered:()=>rendered};
 }
 test('five near-captures trigger Poteto resets and end with Tibo crying',()=>{
  const game=harness();game.key('keydown','Enter');game.advance(10000);assert.equal(game.el('time').textContent,30);assert.equal(game.doc.activeElement.id,'arena');
@@ -44,9 +44,9 @@ test('five near-captures trigger Poteto resets and end with Tibo crying',()=>{
   assert.equal(game.el('level').textContent,String(i+1).padStart(2,'0'));
   for(const d of route(core.createLevel(i)))game.step(d);
   assert.equal(game.el('level').textContent,String(i+1).padStart(2,'0'));assert.equal(game.el('overlay').hidden,false);
-  if(i<4){assert.equal(game.el('overlay').dataset.phase,'resetting');game.advance(3300);assert.equal(game.el('overlay').hidden,true);assert.equal(game.el('time').textContent,core.levels[i+1].timeLimit);game.key('keydown','ArrowDown',true);game.advance(10000);assert.equal(game.el('time').textContent,core.levels[i+1].timeLimit);}
+  if(i<4){assert.equal(game.el('overlay').dataset.phase,'resetting');game.advance(5100);assert.equal(game.el('overlay').hidden,true);assert.equal(game.el('time').textContent,core.levels[i+1].timeLimit);game.key('keydown','ArrowDown',true);game.advance(10000);assert.equal(game.el('time').textContent,core.levels[i+1].timeLimit);}
  }
- game.advance(3300);assert.equal(game.el('overlay').dataset.phase,'won');assert.equal(game.el('overlay-title').textContent,'Poteto wins');game.click('start');assert.equal(game.el('level').textContent,'01');assert.equal(game.el('lives').attrs['aria-label'],'3 lives');
+ game.advance(5100);assert.equal(game.el('overlay').dataset.phase,'won');assert.equal(game.el('overlay-title').textContent,'Poteto wins');game.click('start');assert.equal(game.el('level').textContent,'01');assert.equal(game.el('lives').attrs['aria-label'],'3 lives');
 });
 test('walls block Tibo; pause freezes time; timeouts and retry preserve the rules',()=>{
  const game=harness();game.click('start');game.rawStep('left');game.advance(5000);assert.equal(game.el('time').textContent,30);assert.equal(game.rendered().player.x,1);
@@ -106,7 +106,7 @@ test('reset happens exactly three walkable blocks away, not four, and lasts long
  game.step(directions.at(-1));assert.equal(core.resetDistance(level,game.rendered().player),3);
  assert.equal(game.el('overlay').dataset.phase,'resetting');assert.equal(game.el('overlay-title').textContent,'RESET!');assert(game.rendered().crying);
  game.advance(1000);assert.equal(game.el('overlay').dataset.phase,'resetting');assert.equal(game.el('overlay').dataset.pressState,'down');assert(game.sounds.some(s=>s.frequency===80));
- game.advance(2200);assert.equal(game.el('level').textContent,'02');assert.equal(game.el('time').textContent,30);assert.equal(game.el('overlay').hidden,true);
+ game.advance(3999);assert.equal(game.el('level').textContent,'01');assert.equal(game.el('overlay').dataset.phase,'resetting');game.advance(2);assert.equal(game.el('level').textContent,'02');assert.equal(game.el('time').textContent,30);assert.equal(game.el('overlay').hidden,true);
 });
 test('nearby cells across walls do not trigger resets, and Grok eyes visit all four directions',()=>{
  let foundAcrossWall=false;
@@ -165,7 +165,7 @@ test('both new variants can finish all five levels within their assigned limits'
    assert.equal(game.rendered().maze.variant,variant);
    for(const direction of route(core.createLevel(level,variant)))game.step(direction);
    assert.equal(game.el('level').textContent,String(level+1).padStart(2,'0'));assert.equal(game.el('overlay').dataset.phase,'resetting');
-   assert.equal(game.el('lives').attrs['aria-label'],'3 lives');game.advance(3300);
+   assert.equal(game.el('lives').attrs['aria-label'],'3 lives');game.advance(5100);
   }
   assert.equal(game.el('overlay').dataset.phase,'won');
  }
@@ -202,7 +202,7 @@ test('Level 3 deep links start at Level 3 and then use 50 and 60 seconds for Lev
  for(let i=2;i<5;i++){
   assert.equal(game.el('level').textContent,String(i+1).padStart(2,'0'));assert.equal(game.el('time').textContent,[30,30,30,50,60][i]);
   for(const direction of route(core.createLevel(i)))game.step(direction);
-  assert.equal(game.el('level').textContent,String(i+1).padStart(2,'0'));assert.equal(game.musicActive(),false);game.advance(3300);
+  assert.equal(game.el('level').textContent,String(i+1).padStart(2,'0'));assert.equal(game.musicActive(),false);game.advance(5100);
  }
  assert.equal(game.el('overlay').dataset.phase,'won');game.key('keydown','r');assert.equal(game.el('level').textContent,'03');assert.equal(game.el('time').textContent,30);
 });
@@ -214,4 +214,35 @@ test('longer level retries retain their correct time limits and invalid level li
  }
  for(const query of ['','?level=0','?level=6','?level=nope','?level=-1','?level=2.5'])assert.equal(core.startLevel(query),0);
  assert.deepEqual(core.levels.map(l=>l.timeLimit),[30,30,30,50,60]);
+});
+
+test('crying starts once at the button press, waits five seconds, and is cleaned up on advancement',()=>{
+ const game=harness();game.click('start');for(const d of route(game.rendered().maze))game.step(d);
+ assert.equal(game.cryCount(),0);game.advance(549);assert.equal(game.cryCount(),0);
+ game.advance(2);assert.equal(game.cryCount(),1);assert.equal(game.el('overlay').dataset.phase,'resetting');
+ game.advance(4448);assert.equal(game.cryCount(),1);assert.equal(game.el('level').textContent,'01');
+ const stops=game.cryStops();game.advance(2);assert.equal(game.el('level').textContent,'02');assert(game.cryStops()>stops);
+});
+test('mute suppresses the crying cue and leaving the page stops an active cry',()=>{
+ const game=harness();game.click('start');for(const d of route(game.rendered().maze))game.step(d);
+ game.key('keydown','m');game.advance(600);assert.equal(game.cryCount(),0);
+ game.advance(4500);game.key('keydown','r');game.key('keydown','m');for(const d of route(game.rendered().maze))game.step(d);
+ game.advance(600);assert.equal(game.cryCount(),1);const stops=game.cryStops();game.blur();assert(game.cryStops()>stops);
+});
+test('the recorded crying asset decodes, plays once, respects mute, and stops cleanly',async()=>{
+ const sourceNodes=[];let fetches=0,decoded=0;
+ class Audio{
+  constructor(){this.state='running';this.currentTime=0;this.destination={};}
+  createGain(){return{gain:{value:0,setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}};}
+  async decodeAudioData(bytes){assert(bytes instanceof ArrayBuffer);decoded++;return{duration:4.3};}
+  createBufferSource(){const node={connect(){},start(when){this.started=when;},stops:[],stop(when){this.stops.push(when);}};sourceNodes.push(node);return node;}
+ }
+ const window={AudioContext:Audio,addEventListener(){},fetch:async url=>{assert.equal(url,'crying.wav');fetches++;return{ok:true,arrayBuffer:async()=>new ArrayBuffer(8)};}};
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../music.js'),'utf8'),{window});
+ await window.GrokAudio.unlock();await window.GrokAudio.unlock();assert.equal(fetches,1);assert.equal(decoded,1);
+ assert.equal(window.GrokAudio.cry(),true);assert.equal(sourceNodes.length,1);assert.equal(sourceNodes[0].stops[0],4.3);
+ window.GrokAudio.stopCry();assert.equal(sourceNodes[0].stops.length,2);
+ window.GrokAudio.toggleMute();assert.equal(window.GrokAudio.cry(),false);assert.equal(sourceNodes.length,1);
+ window.GrokAudio.toggleMute();assert.equal(window.GrokAudio.cry(),true);assert.equal(sourceNodes.length,2);
+ const bytes=fs.readFileSync(path.join(__dirname,'../crying.wav'));assert.equal(bytes.toString('ascii',0,4),'RIFF');assert.equal(bytes.toString('ascii',8,12),'WAVE');assert(bytes.length>100000&&bytes.length<300000);
 });

@@ -4,7 +4,7 @@ Play as Tibo and approach the Grok Bot pictured in the supplied reference.
 Grok is always visible and its eyes continuously look up, down, left, and right.
 
 When Tibo is exactly three walkable blocks away, Poteto presses a physical red Reset button using her own attached index finger. The cap visibly compresses when she touches it.
-Tibo cries during a three-second reaction scene, then the next level starts automatically.
+Tibo cries during a five-second reaction scene, then the next level starts automatically.
 After the fifth reset, Poteto wins; Tibo never captures Grok.
 
 - Three distinct versions of each of the five levels, increasing in size and difficulty.
@@ -28,3 +28,5 @@ Open index.html or serve this directory with a static HTTP server. GitHub Pages 
 Character assets are based on the project owner's supplied reference pictures.
 
 Append `?level=3` to the game URL to start directly at Level 3. Levels 4 and 5 follow normally; R restarts at the linked level. Invalid level parameters fall back to Level 1.
+
+The red button triggers a 4.3-second recorded child-crying effect. It plays once per reset and stops before the next level. Mute applies to it, and leaving the page stops it. See CREDITS.md for the CC0 source and edits.

@@ -5,7 +5,7 @@
   const overlay=$('overlay'),steps=[...document.querySelectorAll('.step')],keys=new Set();
   const portrait=new Image();portrait.src='tibo.png';
   const botPortrait=new Image();botPortrait.src='grok.png';
-  const STEP_TIME=.135,TRANSITION_TIME=3.1;
+  const STEP_TIME=.135,TRANSITION_TIME=5;
   const startingLevel=core.startLevel(window.location?.search||'');
   let levelDuration=core.levels[startingLevel].timeLimit;
   let variant=window.GrokRuns.nextVariant(),hasStartedRun=false;
@@ -40,6 +40,7 @@
     $('overlay-title').textContent=title;$('start').textContent=symbol;$('start').setAttribute('aria-label',label);
   }
   function prepareLevel() {
+    window.GrokAudio.stopCry();
     maze=core.createLevel(levelIndex,variant);player={...maze.start};previous={...player};visited=new Set([`${player.x},${player.y}`]);
     levelDuration=maze.timeLimit;remaining=levelDuration;budget=STEP_TIME;keys.clear();awaitingMove=true;paused=false;phase='playing';movedAt=-1000;hurtElapsed=0;footsteps=0;
     overlay.hidden=true;overlay.dataset.pressState='idle';overlay.classList.remove('resetting','pranked');
@@ -61,7 +62,7 @@
     beep(180,.22,'sawtooth',.045);
   }
   function finishGame() {
-    phase='won';syncAudio();showOverlay('Poteto wins','won','↻','Play again');
+    window.GrokAudio.stopCry();phase='won';syncAudio();showOverlay('Poteto wins','won','↻','Play again');
     announce(`${found} resets. Tibo never captured Grok Bot. Poteto wins.`);
   }
   function timeout() {
@@ -98,7 +99,7 @@
       if(hurtElapsed>=.65){player={...maze.start};previous={...player};movedAt=-1000;phase='playing';keys.clear();budget=STEP_TIME;}
     }else if(phase==='resetting') {
       transitionElapsed+=elapsed;
-      if(!resetClicked&&transitionElapsed>=.55){resetClicked=true;beep(80,.05,'square',.05);}
+      if(!resetClicked&&transitionElapsed>=.55){resetClicked=true;beep(80,.05,'square',.05);if(sound)window.GrokAudio.cry();}
       if(transitionElapsed>=.85)overlay.dataset.pressState='down';
       if(transitionElapsed>=TRANSITION_TIME){$('host').classList.remove('pressing');if(levelIndex===core.levels.length-1)finishGame();else{levelIndex++;prepareLevel();}}
     }else if(phase==='playing'&&!paused) {
@@ -153,8 +154,8 @@
   });
   function endDrag(){if(touchDirection)keys.delete(touchDirection);touchDirection=null;drag=null;}
   for(const event of ['pointerup','pointercancel','lostpointercapture'])arena.addEventListener(event,endDrag);
-  window.addEventListener('blur',()=>{keys.clear();if(phase==='playing'&&!paused)togglePause();});
-  document.addEventListener('visibilitychange',()=>{if(document.hidden&&phase==='playing'&&!paused)togglePause();});
+  window.addEventListener('blur',()=>{window.GrokAudio.stopCry();keys.clear();if(phase==='playing'&&!paused)togglePause();});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)window.GrokAudio.stopCry();if(document.hidden&&phase==='playing'&&!paused)togglePause();});
   window.addEventListener('resize',resize);portrait.addEventListener('load',()=>draw(performance.now()));botPortrait.addEventListener('load',()=>draw(performance.now()));
   maze=core.createLevel(startingLevel,variant);player={...maze.start};previous={...player};visited=new Set();updateHUD();showOverlay(`${String(startingLevel+1).padStart(2,'0')} / 05`,'intro','▶',`Play level ${startingLevel+1}`);resize();requestAnimationFrame(tick);
 })();

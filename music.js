@@ -1,6 +1,6 @@
 (function(root) {
   'use strict';
-  let context,master,musicBus,active=false,muted=false,interval=null,nextNote=0,step=0;
+  let context,master,musicBus,active=false,muted=false,interval=null,nextNote=0,step=0,cryBuffer=null,cryLoading=null,crySource=null;
   const melody=[62,65,69,72,69,65,67,69,60,64,67,71,67,64,65,67,58,62,65,69,65,62,64,65,57,61,64,67,64,61,60,61];
   const bass=[38,38,36,36,34,34,33,33],duration=60/112/2;
   const frequency=note=>440*Math.pow(2,(note-69)/12);
@@ -29,7 +29,30 @@
       step++;nextNote+=duration;
     }
   }
-  function unlock(){try{audio();}catch(_){}}
+  function prepareCry(){
+    if(cryLoading)return cryLoading;
+    if(!context||typeof root.fetch!=='function'||typeof context.decodeAudioData!=='function')return Promise.resolve(null);
+    cryLoading=root.fetch('crying.wav').then(response=>{
+      if(!response.ok)throw new Error('Crying audio unavailable');return response.arrayBuffer();
+    }).then(bytes=>context.decodeAudioData(bytes)).then(buffer=>{cryBuffer=buffer;return buffer;}).catch(()=>null);
+    return cryLoading;
+  }
+  function unlock(){try{audio();return prepareCry();}catch(_){return Promise.resolve(null);}}
+  function stopCry(){
+    if(!crySource)return;const source=crySource;crySource=null;try{source.stop();}catch(_){}
+  }
+  function cry(){
+    try{
+      if(muted||!audio()||!cryBuffer)return false;
+      stopCry();const source=context.createBufferSource(),gain=context.createGain();
+      source.buffer=cryBuffer;source.connect(gain);gain.connect(master);
+      const duration=Math.min(4.3,cryBuffer.duration),now=context.currentTime;
+      gain.gain.setValueAtTime(.65,now);gain.gain.setValueAtTime(.65,now+Math.max(0,duration-.1));
+      gain.gain.linearRampToValueAtTime(.0001,now+duration);
+      crySource=source;source.onended=()=>{if(crySource===source)crySource=null;};
+      source.start(now);source.stop(now+duration);return true;
+    }catch(_){return false;}
+  }
   function setActive(value) {
     value=Boolean(value);
     if(value===active)return;
@@ -47,6 +70,6 @@
   function toggleMute() {
     muted=!muted;if(master)master.gain.setValueAtTime(muted?0:.8,context.currentTime);return muted;
   }
-  root.addEventListener('pagehide',()=>{setActive(false);if(master)master.gain.setValueAtTime(0,context.currentTime);});
-  root.GrokAudio={unlock,setActive,tone,toggleMute};
+  root.addEventListener('pagehide',()=>{stopCry();setActive(false);if(master)master.gain.setValueAtTime(0,context.currentTime);});
+  root.GrokAudio={unlock,setActive,tone,toggleMute,cry,stopCry};
 })(window);
