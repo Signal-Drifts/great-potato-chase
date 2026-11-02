@@ -25,7 +25,7 @@ test('five candidate routes, four cactus blockers, one safe route, and increasin
 });
 function harness(storage=memoryStorage(),search=''){
  let now=0,nextFrame,rendered;const handlers={},elements={},sounds=[];let musicStarts=0,muted=false,musicActive=false;
- const doc={activeElement:null,hidden:false,getElementById:id=>el(id),querySelectorAll:s=>s==='.step'?Array.from({length:5},(_,i)=>el(`step-${i}`)):[],addEventListener(){}};
+ const doc={activeElement:null,hidden:false,getElementById:id=>['found','total-levels'].includes(id)?null:el(id),querySelectorAll:s=>s==='.step'?Array.from({length:5},(_,i)=>el(`step-${i}`)):[],addEventListener(){}};
  function el(id){return elements[id]??={id,textContent:'',hidden:false,disabled:false,clientWidth:500,width:500,height:500,dataset:{},attrs:{},listeners:{},classList:{toggle(){},add(){},remove(){}},setAttribute(k,v){this.attrs[k]=v;},addEventListener(k,fn){this.listeners[k]=fn;},focus(){doc.activeElement=this;},getContext(){return{};}};}
  class MockImage{constructor(){this.complete=true;this.naturalWidth=1024;this.naturalHeight=1536;}addEventListener(){}}
  class MockAudio {constructor(){this.state='running';this.currentTime=0;this.destination={};}createOscillator(){return{frequency:{value:0},type:'',connect(){},start(){sounds.push({frequency:this.frequency.value,type:this.type});},stop(){}};}createGain(){return{gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}};}}
@@ -43,10 +43,10 @@ test('five near-captures trigger Poteto resets and end with Tibo crying',()=>{
  for(let i=0;i<5;i++){
   assert.equal(game.el('level').textContent,String(i+1).padStart(2,'0'));
   for(const d of route(core.createLevel(i)))game.step(d);
-  assert.equal(game.el('found').textContent,i+1);assert.equal(game.el('overlay').hidden,false);
+  assert.equal(game.el('level').textContent,String(i+1).padStart(2,'0'));assert.equal(game.el('overlay').hidden,false);
   if(i<4){assert.equal(game.el('overlay').dataset.phase,'resetting');game.advance(3300);assert.equal(game.el('overlay').hidden,true);assert.equal(game.el('time').textContent,core.levels[i+1].timeLimit);game.key('keydown','ArrowDown',true);game.advance(10000);assert.equal(game.el('time').textContent,core.levels[i+1].timeLimit);}
  }
- game.advance(3300);assert.equal(game.el('overlay').dataset.phase,'won');assert.equal(game.el('overlay-title').textContent,'Poteto wins');game.click('start');assert.equal(game.el('found').textContent,0);assert.equal(game.el('lives').attrs['aria-label'],'3 lives');
+ game.advance(3300);assert.equal(game.el('overlay').dataset.phase,'won');assert.equal(game.el('overlay-title').textContent,'Poteto wins');game.click('start');assert.equal(game.el('level').textContent,'01');assert.equal(game.el('lives').attrs['aria-label'],'3 lives');
 });
 test('walls block Tibo; pause freezes time; timeouts and retry preserve the rules',()=>{
  const game=harness();game.click('start');game.rawStep('left');game.advance(5000);assert.equal(game.el('time').textContent,30);assert.equal(game.rendered().player.x,1);
@@ -102,7 +102,7 @@ test('reset happens exactly three walkable blocks away, not four, and lasts long
  const game=harness(),level=core.createLevel(0);game.click('start');const directions=route(level);
  assert.equal(game.rendered().actorSource,'tibo.png');assert.equal(game.rendered().botSource,'grok.png');
  for(const direction of directions.slice(0,-1))game.step(direction);
- assert.equal(core.resetDistance(level,game.rendered().player),4);assert.equal(game.el('overlay').hidden,true);assert.equal(game.el('found').textContent,0);
+ assert.equal(core.resetDistance(level,game.rendered().player),4);assert.equal(game.el('overlay').hidden,true);assert.equal(game.el('level').textContent,'01');
  game.step(directions.at(-1));assert.equal(core.resetDistance(level,game.rendered().player),3);
  assert.equal(game.el('overlay').dataset.phase,'resetting');assert.equal(game.el('overlay-title').textContent,'RESET!');assert(game.rendered().crying);
  game.advance(1000);assert.equal(game.el('overlay').dataset.phase,'resetting');assert.equal(game.el('overlay').dataset.pressState,'down');assert(game.sounds.some(s=>s.frequency===80));
@@ -122,7 +122,7 @@ test('nearby cells across walls do not trigger resets, and Grok eyes visit all f
 test('audio unlocks with Play and removed buttons remain absent from the markup',()=>{
  const game=harness();assert.equal(game.musicStarts(),0);game.key('keydown','Enter');assert.equal(game.musicStarts(),1);assert.equal(game.el('time').textContent,30);
  const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
- for(const id of ['restart','pause','sound'])assert(!html.includes(`id="${id}"`));
+ for(const id of ['restart','pause','sound','found','total-levels'])assert(!html.includes(`id="${id}"`));
  assert(!html.includes('class="pad"'));assert(!html.includes('class="bottom"'));assert(!html.includes('☞'));assert(html.includes('mushroom-button'));
  game.key('keydown','m');game.key('keydown','m');game.key('keydown','r');assert.equal(game.el('time').textContent,30);
 });
@@ -164,7 +164,7 @@ test('both new variants can finish all five levels within their assigned limits'
   for(let level=0;level<5;level++){
    assert.equal(game.rendered().maze.variant,variant);
    for(const direction of route(core.createLevel(level,variant)))game.step(direction);
-   assert.equal(game.el('found').textContent,level+1);assert.equal(game.el('overlay').dataset.phase,'resetting');
+   assert.equal(game.el('level').textContent,String(level+1).padStart(2,'0'));assert.equal(game.el('overlay').dataset.phase,'resetting');
    assert.equal(game.el('lives').attrs['aria-label'],'3 lives');game.advance(3300);
   }
   assert.equal(game.el('overlay').dataset.phase,'won');
@@ -197,12 +197,12 @@ test('music is silent on idle, pause, blur, timeout, and restart, and resumes on
 });
 test('Level 3 deep links start at Level 3 and then use 50 and 60 seconds for Levels 4 and 5',()=>{
  const game=harness(memoryStorage(),'?v=11&level=3');
- assert.equal(game.el('level').textContent,'03');assert.equal(game.el('start').attrs['aria-label'],'Play level 3');assert.equal(game.el('time').textContent,30);assert.equal(game.el('total-levels').textContent,'/ 3');
+ assert.equal(game.el('level').textContent,'03');assert.equal(game.el('start').attrs['aria-label'],'Play level 3');assert.equal(game.el('time').textContent,30);
  game.click('start');
  for(let i=2;i<5;i++){
   assert.equal(game.el('level').textContent,String(i+1).padStart(2,'0'));assert.equal(game.el('time').textContent,[30,30,30,50,60][i]);
   for(const direction of route(core.createLevel(i)))game.step(direction);
-  assert.equal(game.el('found').textContent,i-1);assert.equal(game.musicActive(),false);game.advance(3300);
+  assert.equal(game.el('level').textContent,String(i+1).padStart(2,'0'));assert.equal(game.musicActive(),false);game.advance(3300);
  }
  assert.equal(game.el('overlay').dataset.phase,'won');game.key('keydown','r');assert.equal(game.el('level').textContent,'03');assert.equal(game.el('time').textContent,30);
 });

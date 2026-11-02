@@ -20,7 +20,7 @@
     if(sound)window.GrokAudio.tone(frequency,length,wave,volume);
   }
   function updateHUD() {
-    $('level').textContent=String(levelIndex+1).padStart(2,'0');$('found').textContent=found;$('total-levels').textContent='/ '+(core.levels.length-startingLevel);
+    $('level').textContent=String(levelIndex+1).padStart(2,'0');
     $('lives').textContent='♥'.repeat(lives)+'♡'.repeat(3-lives);$('lives').setAttribute('aria-label',`${lives} lives`);
     $('time').textContent=Math.ceil(Math.max(0,remaining));$('timer-pill').classList.toggle('danger',remaining<=10);
     steps.forEach((el,i)=>{el.classList.toggle('done',i<startingLevel+found);el.classList.toggle('active',i===levelIndex&&i>=startingLevel+found);});
