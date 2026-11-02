@@ -1,163 +1,68 @@
 (() => {
-  'use strict';
-  const $ = id => document.getElementById(id);
-  const arena = $('arena'), pEl = $('poteto'), tEl = $('tibo'), sEl = $('snack');
-  const overlay = $('overlay'), startButton = $('start'), pauseButton = $('pause');
-  const keys = new Set();
-  let p, t, snack, score = 0, lives = 3, remaining = 45;
-  let running = false, paused = false, last = 0, invulnerable = 0, frame = 0;
-  let sound = true, audio;
-  let jumpRemaining = 0, jumpCooldown = 0, awaitingMove = true, headStart = 3;
-  const status = $('keyboard-status');
-  const focusGame = () => arena.focus({preventScroll: true});
-  function beginMoving() {
-    if (!running) start();
-    if (paused) pause();
-    awaitingMove = false;
-    status.textContent = 'Keyboard ready — arrows / WASD to run, Space to hop.';
-  }
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const random = () => ({x: .12 + Math.random() * .76, y: .14 + Math.random() * .72});
-  function place(el, v) { el.style.left = v.x * 100 + '%'; el.style.top = v.y * 100 + '%'; }
-  function beep(frequency, seconds = .1) {
-    if (!sound) return;
-    try {
-      audio ??= new (window.AudioContext || window.webkitAudioContext)();
-      if (audio.state === 'suspended') audio.resume();
-      const oscillator = audio.createOscillator(), gain = audio.createGain();
-      oscillator.type = 'triangle'; oscillator.frequency.value = frequency;
-      oscillator.connect(gain); gain.connect(audio.destination);
-      gain.gain.setValueAtTime(.08, audio.currentTime);
-      gain.gain.exponentialRampToValueAtTime(.001, audio.currentTime + seconds);
-      oscillator.start(); oscillator.stop(audio.currentTime + seconds);
-    } catch (_) { /* Audio is optional on browsers that do not support it. */ }
-  }
-  function jump() {
-    if (!running || paused || jumpCooldown > 0) return;
-    awaitingMove = false;
-    jumpRemaining = .65; jumpCooldown = .95; beep(520, .12);
-  }
-  function newSnack() {
-    let candidate;
-    for (let attempt = 0; attempt < 100; attempt++) {
-      candidate = random();
-      if (Math.hypot(candidate.x - p.x, candidate.y - p.y) >= .17) break;
-    }
-    snack = candidate; place(sEl, snack);
-  }
-  function draw() {
-    place(pEl, p); place(tEl, t);
-    pEl.style.setProperty('--lift', (-Math.sin(Math.PI * jumpRemaining / .65) * 58) + 'px');
-    pEl.style.setProperty('--tilt', (running && !paused && keys.size ? Math.sin(remaining * 22) * 6 : 0) + 'deg');
-    tEl.style.setProperty('--tilt', (running && !paused ? Math.sin(remaining * 18) * 5 : 0) + 'deg');
-    pEl.style.opacity = invulnerable > 0 && Math.floor(invulnerable * 8) % 2 === 0 ? '.45' : '1';
-  }
-  function finish(won) {
-    running = false; paused = false; keys.clear(); pauseButton.disabled = true;
-    overlay.hidden = false;
-    $('headline').textContent = won ? '🎉 Poteto Escaped!' : '😵 Tibo Caught Poteto!';
-    $('message').textContent = `Final score ${score} points. ${won ? 'You survived the chase!' : 'Give it another shot!'}`;
-    status.textContent = 'Press Enter or a movement key to play again.';
-    startButton.textContent = 'Play Again'; beep(won ? 880 : 160, .3);
-  }
-  function start() {
-    p = {x: .2, y: .5}; t = {x: .8, y: .5};
-    score = 0; lives = 3; remaining = 45; invulnerable = 0; headStart = 3; jumpRemaining = 0; jumpCooldown = 0; keys.clear();
-    $('score').textContent = score; $('lives').textContent = lives; $('time').textContent = 45;
-    newSnack(); draw(); overlay.hidden = true; running = true; paused = false;
-    pauseButton.disabled = false; pauseButton.textContent = 'Pause';
-    awaitingMove = true;
-    status.textContent = 'Ready — press arrows / WASD or touch a direction to start the chase.';
-    focusGame();
-    last = performance.now(); cancelAnimationFrame(frame); frame = requestAnimationFrame(tick);
-    beep(550);
-  }
-  function pause() {
-    if (!running) return;
-    paused = !paused; keys.clear(); cancelAnimationFrame(frame);
-    pauseButton.textContent = paused ? 'Resume' : 'Pause'; overlay.hidden = !paused;
-    status.textContent = paused ? 'Paused — click Resume or press a movement key.' : 'Keyboard ready — arrows / WASD to run, Space to hop.';
-    if (paused) {
-      $('headline').textContent = 'Chase paused';
-      $('message').textContent = 'Take a breather. Press P or Resume to keep running.';
-      startButton.textContent = 'Resume';
-    } else { focusGame(); last = performance.now(); frame = requestAnimationFrame(tick); }
-  }
-  function tick(now) {
-    if (!running || paused) return;
-    const dt = Math.min((now - last) / 1000, .045); last = now;
-    if (awaitingMove) { draw(); frame = requestAnimationFrame(tick); return; }
-    headStart = Math.max(0, headStart - dt);
-    status.textContent = headStart > 0 ? `Head start! Tibo moves in ${Math.ceil(headStart)}…` : 'Arrows / WASD to run, Space to hop. Keep collecting fries!';
-    remaining -= dt;
-    if (remaining <= 0) { $('time').textContent = 0; finish(true); return; }
-    $('time').textContent = Math.ceil(remaining);
-    jumpRemaining = Math.max(0, jumpRemaining - dt);
-    jumpCooldown = Math.max(0, jumpCooldown - dt);
-    $('jump').textContent = jumpCooldown > 0 ? 'Hop recharging…' : 'Hop! ⤴';
-    const w = arena.clientWidth, h = arena.clientHeight;
-    const radius = pEl.offsetWidth / 2;
-    const marginX = radius / w, marginY = radius / h;
-    let dx = Number(keys.has('right')) - Number(keys.has('left'));
-    let dy = Number(keys.has('down')) - Number(keys.has('up'));
-    const norm = Math.hypot(dx, dy) || 1;
-    // Scale movement to the arena so small touchscreens have the same difficulty.
-    const scale = Math.min(w, h) / 500;
-    p.x = clamp(p.x + dx / norm * 220 * scale * dt / w, marginX, 1 - marginX);
-    p.y = clamp(p.y + dy / norm * 220 * scale * dt / h, marginY, 1 - marginY);
-    const tx = (p.x - t.x) * w, ty = (p.y - t.y) * h;
-    const distance = Math.hypot(tx, ty) || 1, chaseSpeed = headStart > 0 ? 0 : (55 + Math.min(score * .2, 35)) * scale;
-    t.x = clamp(t.x + tx / distance * chaseSpeed * dt / w, marginX, 1 - marginX);
-    t.y = clamp(t.y + ty / distance * chaseSpeed * dt / h, marginY, 1 - marginY);
-    if (Math.hypot((p.x - snack.x) * w, (p.y - snack.y) * h) < radius + 12) {
-      score += 10; $('score').textContent = score; beep(740); newSnack();
-    }
-    invulnerable = Math.max(0, invulnerable - dt);
-    const contact = Math.hypot((p.x - t.x) * w / (radius * .8), (p.y - t.y) * h / (radius * 1.1)) < 1;
-    if (headStart === 0 && invulnerable === 0 && jumpRemaining === 0 && contact) {
-      lives--; $('lives').textContent = lives; beep(180, .2);
-      if (lives <= 0) { draw(); finish(false); return; }
-      invulnerable = 3; t = {x: p.x > .5 ? .12 : .88, y: p.y > .5 ? .12 : .88};
-    }
-    draw(); frame = requestAnimationFrame(tick);
-  }
-  startButton.addEventListener('click', () => paused ? pause() : start());
-  pauseButton.addEventListener('click', pause);
-  $('jump').addEventListener('pointerdown', e => { e.preventDefault(); jump(); });
-  $('jump').addEventListener('click', jump);
-  $('sound').addEventListener('click', () => {
-    sound = !sound; $('sound').textContent = sound ? 'Sound on' : 'Sound off';
-    $('sound').setAttribute('aria-pressed', String(sound)); beep(660); if (running && !paused) focusGame();
-  });
-  const mapping = {arrowup: 'up', arrowdown: 'down', arrowleft: 'left', arrowright: 'right', w: 'up', a: 'left', s: 'down', d: 'right'};
-  function direction(e) {
-    return mapping[e.key.toLowerCase()] || ({KeyW:'up',KeyA:'left',KeyS:'down',KeyD:'right'})[e.code];
-  }
-  window.addEventListener('keydown', e => {
-    const key = e.key.toLowerCase();
-    if (key === 'enter' && (!running || paused)) {
-      e.preventDefault(); e.stopPropagation(); paused ? pause() : start(); return;
-    }
-    if ((key === 'p' || key === 'escape') && !e.repeat) { e.preventDefault(); pause(); return; }
-    if (e.code === 'Space' || key === ' ') {
-      e.preventDefault(); if (!e.repeat) { beginMoving(); jump(); } return;
-    }
-    const dir = direction(e);
-    if (dir) { e.preventDefault(); e.stopPropagation(); beginMoving(); keys.add(dir); }
-  }, {capture:true});
-  window.addEventListener('keyup', e => keys.delete(direction(e)), {capture:true});
-  arena.addEventListener('pointerdown', e => {
-    if (e.target.closest('button')) return;
-    focusGame(); if (running && paused) pause();
-  });
-  window.addEventListener('blur', () => { keys.clear(); if (running && !paused) pause(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden && running && !paused) pause(); });
-  document.querySelectorAll('[data-dir]').forEach(button => {
-    const dir = button.dataset.dir;
-    button.addEventListener('pointerdown', e => {
-      e.preventDefault(); beginMoving(); keys.add(dir); focusGame(); button.setPointerCapture(e.pointerId);
-    });
-    for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(event, () => keys.delete(dir));
-  });
-  p = {x: .2, y: .5}; t = {x: .8, y: .5}; newSnack(); draw();
+'use strict';
+const $=id=>document.getElementById(id),core=window.PotatoMaze;
+const arena=$('arena'),canvas=$('maze'),ctx=canvas.getContext('2d'),overlay=$('overlay'),status=$('keyboard-status'),keys=new Set();
+const steps=[...document.querySelectorAll('.step')],portrait=new Image();portrait.src='poteto.png';
+const STEP_TIME=.12;
+let levelIndex=0,found=0,lives=3,remaining=45,maze,player,visited;
+let phase='intro',paused=false,awaitingMove=true,last=0,frame=0,budget=0,sound=true,audio,lastDirection='right';
+const focusGame=()=>arena.focus({preventScroll:true});
+function beep(frequency,length=.1){if(!sound)return;try{audio??=new(window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.value=frequency;osc.connect(gain);gain.connect(audio.destination);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audio.currentTime+length);osc.start();osc.stop(audio.currentTime+length);}catch(_){/* Sound is optional. */}}
+function updateHUD(){
+ $('level').textContent=levelIndex+1;$('found').textContent=found;$('lives').textContent=lives;$('time').textContent=Math.ceil(Math.max(0,remaining));$('timer-pill').classList.toggle('danger',remaining<=10);
+ steps.forEach((el,i)=>{el.classList.toggle('done',i<found);el.classList.toggle('active',i===levelIndex&&found<5);});
+}
+function scent(){const d=Math.abs(player.x-maze.target.x)+Math.abs(player.y-maze.target.y);$('scent').textContent=d<=2?'Scent — sizzling! The fry is nearby.':d<=5?'Scent — warm. Keep looking!':'Scent — cold. Explore farther.';}
+function draw(){
+ if(!maze)return;const size=canvas.width,tile=size/maze.size;ctx.clearRect(0,0,size,size);
+ for(let y=0;y<maze.size;y++)for(let x=0;x<maze.size;x++){
+  const wall=maze.grid[y][x]===1;ctx.fillStyle=wall?'#514476':'#183c32';ctx.fillRect(x*tile,y*tile,Math.ceil(tile),Math.ceil(tile));
+  if(wall){ctx.fillStyle='#776494';ctx.fillRect(x*tile,y*tile,Math.ceil(tile),Math.max(1,tile*.09));ctx.fillStyle='#362c52';ctx.fillRect(x*tile,(y+.88)*tile,Math.ceil(tile),tile*.12+1);}
+  else if(visited.has(`${x},${y}`)){ctx.fillStyle='#ffe47a80';ctx.beginPath();ctx.arc((x+.5)*tile,(y+.5)*tile,tile*.085,0,Math.PI*2);ctx.fill();}
+ }
+ const d=Math.abs(player.x-maze.target.x)+Math.abs(player.y-maze.target.y);
+ if(d<=2||phase==='cleared'||phase==='won'){const{x,y}=maze.target;ctx.fillStyle='#ffdb5c44';ctx.fillRect(x*tile,y*tile,tile,tile);ctx.font=`${tile*.82}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🍟',(x+.5)*tile,(y+.5)*tile);}
+ const cx=(player.x+.5)*tile,cy=(player.y+.5)*tile;ctx.fillStyle='#ffdf6a';ctx.beginPath();ctx.arc(cx,cy,tile*.31,0,Math.PI*2);ctx.fill();
+ if(portrait.complete&&portrait.naturalWidth>0){const h=tile*1.65,w=h*portrait.naturalWidth/portrait.naturalHeight;ctx.drawImage(portrait,cx-w/2,cy-h*.78,w,h);}else{ctx.font=`${tile*.85}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🥔',cx,cy);}
+}
+function resize(){const w=Math.max(1,arena.clientWidth),ratio=Math.min(window.devicePixelRatio||1,3);canvas.width=Math.round(w*ratio);canvas.height=canvas.width;draw();}
+function showOverlay(title,message,button,hint='Press Enter to continue'){$('headline').textContent=title;$('message').textContent=message;$('start').textContent=button;$('overlay-hint').textContent=hint;overlay.hidden=false;$('pause').disabled=true;}
+function prepareLevel(){
+ maze=core.createLevel(levelIndex);player={...maze.start};visited=new Set([`${player.x},${player.y}`]);remaining=45;keys.clear();budget=STEP_TIME;awaitingMove=true;paused=false;phase='playing';overlay.hidden=true;$('pause').disabled=false;$('pause').textContent='Pause';
+ $('challenge').textContent=`Level ${levelIndex+1} — ${maze.name}. I hid one fry in here!`;status.textContent='Ready — make your first move to start your 45 seconds.';updateHUD();scent();resize();focusGame();cancelAnimationFrame(frame);last=performance.now();frame=requestAnimationFrame(tick);
+}
+function reset(){levelIndex=0;found=0;lives=3;prepareLevel();beep(550);}
+function primaryAction(){if(paused){togglePause();return;}if(phase==='cleared'){levelIndex++;prepareLevel();}else if(phase==='timeout')prepareLevel();else if(['intro','won','lost'].includes(phase))reset();}
+function completeLevel(){
+ found++;keys.clear();cancelAnimationFrame(frame);updateHUD();
+ if(found===5){phase='won';showOverlay('🎉 All five fries found!','You beat every maze and found all of Tibo’s hidden fries. Poteto wins!','Play all five again');status.textContent='Five mazes. Five fries. Poteto wins!';}
+ else{phase='cleared';showOverlay(`🍟 Level ${levelIndex+1} complete!`,`Found it with ${Math.ceil(remaining)} seconds left. The next maze is bigger, with more turns and dead ends. You get a fresh 45 seconds.`,`Play Level ${levelIndex+2}`);status.textContent='Fry found! Take a breath before the next maze.';}
+ beep(880,.25);draw();
+}
+function timeout(){remaining=0;lives--;keys.clear();cancelAnimationFrame(frame);updateHUD();phase=lives>0?'timeout':'lost';showOverlay('⏱ Time’s up!',lives>0?`You have ${lives} ${lives===1?'try':'tries'} left. Try this same maze again with a fresh 45 seconds.`:`You found ${found} of Tibo’s five fries. Start again and try to beat all five mazes.`,lives>0?'Retry this level':'Restart Level 1');status.textContent=lives>0?'Retry keeps your completed levels.':'Out of tries. Start a new game.';beep(160,.25);}
+function move(direction){if(!core.canMove(maze.grid,player.x,player.y,direction))return false;const[dx,dy]=core.directions[direction];player.x+=dx;player.y+=dy;awaitingMove=false;visited.add(`${player.x},${player.y}`);status.textContent='Find the hidden fry before the timer reaches zero.';scent();draw();if(player.x===maze.target.x&&player.y===maze.target.y)completeLevel();return true;}
+function tick(now){
+ if(phase!=='playing'||paused)return;const elapsed=Math.max(0,(now-last)/1000);last=now;
+ if(!awaitingMove){remaining-=elapsed;if(remaining<=0){timeout();return;}updateHUD();}
+ budget=Math.min(STEP_TIME,budget+Math.min(elapsed,.1));
+ if(keys.size&&budget>=STEP_TIME){const direction=keys.has(lastDirection)?lastDirection:[...keys].at(-1);move(direction);budget=0;}
+ if(phase==='playing')frame=requestAnimationFrame(tick);
+}
+function togglePause(){
+ if(phase!=='playing')return;paused=!paused;keys.clear();cancelAnimationFrame(frame);
+ if(paused){showOverlay('Maze paused','Your timer is paused. Resume when you’re ready to keep searching.','Resume');$('pause').disabled=false;$('pause').textContent='Resume';status.textContent='Paused — press P, Enter, or Resume.';}
+ else{overlay.hidden=true;$('pause').disabled=false;$('pause').textContent='Pause';status.textContent=awaitingMove?'Ready — make your first move to start your 45 seconds.':'Find the hidden fry before the timer reaches zero.';focusGame();last=performance.now();frame=requestAnimationFrame(tick);}
+}
+function pressDirection(direction){if(paused)togglePause();if(phase==='intro')reset();if(phase!=='playing')return;if(!keys.has(direction))budget=STEP_TIME;keys.add(direction);lastDirection=direction;}
+const mapping={arrowup:'up',arrowdown:'down',arrowleft:'left',arrowright:'right',w:'up',a:'left',s:'down',d:'right'};
+const directionOf=e=>mapping[e.key.toLowerCase()]||({KeyW:'up',KeyA:'left',KeyS:'down',KeyD:'right'})[e.code];
+window.addEventListener('keydown',e=>{const direction=directionOf(e),key=e.key.toLowerCase();if(direction){e.preventDefault();e.stopPropagation();pressDirection(direction);}else if(key==='enter'){e.preventDefault();if(!e.repeat)primaryAction();}else if((key==='p'||key==='escape')&&!e.repeat){e.preventDefault();togglePause();}else if(e.code==='Space')e.preventDefault();},{capture:true});
+window.addEventListener('keyup',e=>keys.delete(directionOf(e)),{capture:true});
+$('start').addEventListener('click',primaryAction);$('pause').addEventListener('click',togglePause);$('restart').addEventListener('click',reset);
+$('sound').addEventListener('click',()=>{sound=!sound;$('sound').textContent=sound?'Sound on':'Sound off';$('sound').setAttribute('aria-pressed',String(sound));beep(660);if(phase==='playing'&&!paused)focusGame();});
+document.querySelectorAll('[data-dir]').forEach(button=>{const direction=button.dataset.dir;button.addEventListener('pointerdown',e=>{e.preventDefault();pressDirection(direction);focusGame();button.setPointerCapture(e.pointerId);});for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,()=>keys.delete(direction));});
+arena.addEventListener('pointerdown',e=>{if(!e.target.closest('button'))focusGame();});
+window.addEventListener('blur',()=>{keys.clear();if(phase==='playing'&&!paused)togglePause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&phase==='playing'&&!paused)togglePause();});
+window.addEventListener('resize',resize);portrait.addEventListener('load',draw);
+maze=core.createLevel(0);player={...maze.start};visited=new Set(['1,1']);resize();
 })();

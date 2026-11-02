@@ -1,19 +1,27 @@
-# The Great Potato Chase
+# The Great Potato Maze
 
-You are Poteto. Collect fries, dodge Tibo, and survive 45 seconds with three lives. The chase waits for your first move, and Poteto gets a three-second head start.
+Tibo hides one fry in each maze. Help Poteto find it before her 45 seconds run out.
 
-Open `index.html` in a modern browser, or play on GitHub Pages. No installation, account, or server is required.
+## Rules
 
-- Arrow keys or WASD to move
-- Enter to start
-- Space to hop over Tibo (short cooldown between hops)
-- P or Escape to pause and resume
-- On-screen direction buttons for phones and tablets
-- Sound effects start after your first interaction and can be muted with the Sound button
-- Each fry earns 10 points
+- Five mazes grow from 9×9 to 21×21 cells, with more corridors, turns, and dead ends.
+- Each level has exactly one hidden fry, revealed within two cells of Poteto.
+- Finding the fry clears the level. Completing all five levels wins.
+- The timer resets to 45 seconds each level and starts on the first successful move.
+- Three tries are shared across the game. A timeout costs one try; retrying preserves completed levels.
+- Gold dots mark explored tiles. A scent hint gets warmer near the hidden fry.
+- Every maze has a reachable target. Retrying preserves its layout.
 
-The character pictures were supplied by the project owner. The game uses separate image files for Tibo and Poteto.
+## Controls
 
-## Hosting
+Arrow keys or WASD to move. Enter to start or continue. P or Escape to pause.
+Phone and tablet players can hold the on-screen direction buttons.
+Walls block movement. There is no chasing or wall-jumping in the maze game.
+Sound starts after interaction and can be muted. Switching tabs pauses the timer.
 
-GitHub Pages serves the root of the `main` branch. All image and script paths are relative, so the game also works under a project URL.
+## Run and publish
+
+Open index.html in a browser, or serve the folder with a static web server.
+GitHub Pages serves the root of main. Asset paths are relative.
+Run automated checks with `node --test tests/*.test.cjs`.
+Character assets were created from the project owner's supplied reference pictures.
