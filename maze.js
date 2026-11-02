@@ -1,14 +1,17 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.PotatoMaze=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
 'use strict';
 const levels=[
- {size:23,routes:5,seed:2107,rotation:0,mirror:false,bandHeight:3,gateCount:1,startGap:1},
- {size:27,routes:5,seed:3109,rotation:1,mirror:false,bandHeight:5,gateCount:1,startGap:2},
- {size:31,routes:5,seed:4111,rotation:2,mirror:false,bandHeight:5,gateCount:2,startGap:0},
- {size:35,routes:5,seed:5119,rotation:3,mirror:false,bandHeight:7,gateCount:2,startGap:3},
- {size:39,routes:5,seed:6134,rotation:2,mirror:true,bandHeight:9,gateCount:3,startGap:0}
+ {size:23,timeLimit:30,routes:5,seed:2107,rotation:0,mirror:false,bandHeight:3,gateCount:1,startGap:1},
+ {size:27,timeLimit:30,routes:5,seed:3109,rotation:1,mirror:false,bandHeight:5,gateCount:1,startGap:2},
+ {size:31,timeLimit:30,routes:5,seed:4111,rotation:2,mirror:false,bandHeight:5,gateCount:2,startGap:0},
+ {size:35,timeLimit:50,routes:5,seed:5119,rotation:3,mirror:false,bandHeight:7,gateCount:2,startGap:3},
+ {size:39,timeLimit:60,routes:5,seed:6134,rotation:2,mirror:true,bandHeight:9,gateCount:3,startGap:0}
 ];
 const variantSeeds=[[2107,2207,2308],[3109,3214,3314],[4111,4212,4311],[5119,5219,5319],[6134,6237,6344]];
 const directions={up:[0,-1],right:[1,0],down:[0,1],left:[-1,0]};
+function startLevel(search=''){
+ try{const level=Number(new URLSearchParams(search).get('level'));return Number.isInteger(level)&&level>=1&&level<=5?level-1:0;}catch(_){return 0;}
+}
 function canMove(grid,x,y,direction){const d=directions[direction];return !!d&&grid[y+d[1]]?.[x+d[0]]===0;}
 function distances(grid,start){
  const result=grid.map(row=>row.map(()=>-1)),queue=[{...start}];result[start.y][start.x]=0;
@@ -66,5 +69,5 @@ function createLevel(index,variant=0){
  const finalStart=transform(start),finalTarget=transform(target),distance=distances(safeGrid,finalStart);
  return{...config,variant,levelIndex:index,grid:transformed,safeGrid,start:finalStart,target:finalTarget,hazards:finalHazards,gates:gates.map(transform),targetDistances:distances(safeGrid,finalTarget),solutionLength:distance[finalTarget.y][finalTarget.x]};
 }
-return{levels,variantSeeds,directions,canMove,distances,pathBetween,isGateOpen,resetDistance,createLevel};
+return{levels,variantSeeds,startLevel,directions,canMove,distances,pathBetween,isGateOpen,resetDistance,createLevel};
 });
