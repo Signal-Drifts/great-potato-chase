@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Play Poteto, collect fries, and dodge Tibo in a free 45-second browser chase. Keyboard and touch controls. No login required.">
+<title>The Great Potato Chase 🥔</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#151329;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:14px}main{width:min(100%,780px)}h1{text-align:center;font-size:clamp(25px,5vw,42px);margin:5px 0 6px;color:#ffe47a}.sub{text-align:center;margin:0 0 15px;color:#c6c0e5}.hud{display:flex;gap:9px;justify-content:space-between;margin-bottom:10px}.pill{background:#292544;border:1px solid #48416c;border-radius:14px;padding:9px 13px;font-weight:800;font-size:clamp(12px,3vw,17px)}#arena{position:relative;width:100%;aspect-ratio:1.35;max-height:65dvh;min-height:260px;overflow:hidden;border:5px solid #6952a3;border-radius:22px;background:radial-gradient(circle at 35% 35%,#7ee0a5,#4fba8b);touch-action:none;box-shadow:0 15px 40px #0006}#arena:before{content:"";position:absolute;inset:0;background-image:radial-gradient(#ffffff55 2px,transparent 2px);background-size:35px 35px;opacity:.25}.actor{position:absolute;width:clamp(44px,10%,76px);aspect-ratio:1;border-radius:50%;border:4px solid white;box-shadow:0 5px 13px #0005;pointer-events:none;z-index:2;transform:translate(-50%,-50%);overflow:hidden;background:#fff}.actor img{position:absolute;max-width:none;height:auto}#tibo{border-color:#ff7171}#tibo img{width:144.7%;left:-24.6%;top:-11.4%}#poteto{border-color:#ffe26b}#poteto img{width:194.7%;left:-20.8%;top:-6.4%}.snack{position:absolute;font-size:clamp(24px,5vw,37px);transform:translate(-50%,-50%);pointer-events:none;z-index:1;filter:drop-shadow(0 3px 2px #0004)}#overlay{position:absolute;inset:0;background:#17132be8;z-index:5;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px}#overlay[hidden]{display:none}.panel{max-width:430px}.panel h2{font-size:clamp(24px,5vw,36px);margin:0 0 8px}.panel p{line-height:1.5;color:#e6e0ff}button{border:0;border-radius:14px;padding:13px 24px;background:#ffdc5c;color:#29213d;font-weight:900;font-size:17px;cursor:pointer}button:focus-visible{outline:3px solid white;outline-offset:4px}.controls{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px}.help{font-size:13px;color:#c6c0e5;max-width:350px}.pad{display:grid;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(2,44px);gap:4px;touch-action:none;flex-shrink:0}.pad button{padding:0;background:#3e355f;color:white;border:1px solid #7764ae;border-radius:11px;font-size:22px;user-select:none;-webkit-user-select:none}.pad button:active{background:#6952a3}.pad [data-dir=up]{grid-column:2}.pad [data-dir=left]{grid-column:1;grid-row:2}.pad [data-dir=down]{grid-column:2;grid-row:2}.pad [data-dir=right]{grid-column:3;grid-row:2}footer{text-align:center;color:#b5aaca;font-size:12px;margin-top:12px}.actions{display:flex;justify-content:center;gap:10px;margin:12px 0}.small{background:#292544;color:#e6e0ff;padding:8px 14px;font-size:13px;border:1px solid #48416c}.legend{display:flex;justify-content:center;gap:20px;font-size:12px;margin-bottom:10px;color:#e6e0ff}.legend span:first-child{color:#ffe26b}.legend span:last-child{color:#ff9292}@media(max-width:400px){body{padding:10px}.pill{padding:8px}.controls{gap:8px}.help{font-size:12px}.pad{grid-template-columns:repeat(3,44px)}}
+
+/* Full-body characters keep their original faces without circular avatar frames. */
+.actor{width:clamp(52px,11%,88px);border:0;border-radius:0;box-shadow:none;overflow:visible;background:transparent}
+.actor img,#tibo img,#poteto img{width:100%;height:100%;left:0;top:0;object-fit:contain;z-index:2;transform:translateY(var(--lift,0px)) rotate(var(--tilt,0deg));transform-origin:50% 90%;filter:drop-shadow(0 3px 2px #0004)}
+.actor::after{content:"";position:absolute;width:50%;height:10%;background:#19382c55;border-radius:50%;left:25%;bottom:0;z-index:-1}
+.actor::before{content:attr(data-name);position:absolute;left:50%;top:100%;transform:translateX(-50%);padding:1px 5px;border-radius:5px;background:#151329b5;color:white;font-size:10px;font-weight:800;white-space:nowrap}
+.pad #jump{grid-column:1 / 4;background:#ffdc5c;color:#29213d;font-size:16px;height:40px}
+</style>
+</head>
+<body><main>
+<h1>🥔 The Great Potato Chase!</h1><p class="sub">Catch me if you can, Tibo!</p>
+<div class="legend"><span>● You are Poteto</span><span>● Tibo is chasing</span></div>
+<div class="hud"><div class="pill">🍟 Score <span id="score">0</span></div><div class="pill">❤️ Lives <span id="lives">3</span></div><div class="pill">⏱️ <span id="time">45</span>s</div></div>
+<div id="arena" aria-label="Game area">
+<div id="poteto" class="actor" data-name="Poteto"><img src="poteto.png" alt="Poteto"></div><div id="tibo" class="actor" data-name="Tibo"><img src="tibo.png" alt="Tibo"></div><div id="snack" class="snack" aria-label="Fries">🍟</div>
+<div id="overlay"><div class="panel"><h2 id="headline">Poteto vs Tibo</h2><p id="message" aria-live="polite">You are Poteto! Collect 🍟 fries and dodge Tibo for 45 seconds. Use arrow keys or WASD to run, Space to hop over Tibo, or the touch controls.</p><button id="start">Let's Play!</button><p>Press Enter to start</p></div></div>
+</div>
+<div class="controls"><div class="help">Arrow keys / WASD to run. Space to jump over Tibo. Each fry earns 10 points. P to pause. Don't let Tibo catch you!</div><div class="pad" aria-label="Touch movement controls"><button data-dir="up" aria-label="Up">▲</button><button data-dir="left" aria-label="Left">◀</button><button data-dir="down" aria-label="Down">▼</button><button data-dir="right" aria-label="Right">▶</button><button id="jump" aria-label="Jump">Hop! ⤴</button></div></div>
+<div class="actions"><button id="pause" class="small" disabled>Pause</button><button id="sound" class="small" aria-pressed="true">Sound on</button></div>
+<footer>Free to play · No login required · Made for Tibo &amp; Poteto</footer>
+</main>
+<script src="game.js?v=2"></script>
+</body></html>
