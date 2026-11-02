@@ -1,6 +1,6 @@
 # The Great Potato Chase
 
-You are Poteto. Collect fries, dodge Tibo, and survive 45 seconds with three lives.
+You are Poteto. Collect fries, dodge Tibo, and survive 45 seconds with three lives. The chase waits for your first move, and Poteto gets a three-second head start.
 
 Open `index.html` in a modern browser, or play on GitHub Pages. No installation, account, or server is required.
 
