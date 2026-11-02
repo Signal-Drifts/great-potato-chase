@@ -7,7 +7,9 @@ When Tibo is exactly three walkable blocks away, Poteto presses a physical red R
 Tibo cries during a three-second reaction scene, then the next level starts automatically.
 After the fifth reset, Poteto wins; Tibo never captures Grok.
 
-- Five distinct mazes and target locations, increasing in size and difficulty.
+- Three distinct versions of each of the five levels, increasing in size and difficulty.
+- Each page load or full new game cycles to the next version, remembered in browser storage. After the third version, the cycle repeats.
+- Retries and Poteto’s automatic level resets keep the chosen version for that run.
 - Five candidate routes each level: four cactus traps and one safe route.
 - Cactus contact costs one of three shared lives and respawns Tibo at the entrance.
 - Timed gates form bottlenecks. Wait until they open.

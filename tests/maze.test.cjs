@@ -4,6 +4,8 @@ const vm=require('node:vm');
 const fs=require('node:fs');
 const path=require('node:path');
 const core=require('../maze.js');
+const runs=require('../runs.js');
+function memoryStorage(initial={}){const entries=new Map(Object.entries(initial));return{getItem:k=>entries.get(k)??null,setItem:(k,v)=>entries.set(k,String(v))};}
 function route(level){
  const distance=core.distances(level.safeGrid||level.grid,level.target),p={...level.start},result=[];
  while(p.x!==level.target.x||p.y!==level.target.y){const next=Object.entries(core.directions).find(([d,[dx,dy]])=>core.canMove(level.safeGrid||level.grid,p.x,p.y,d)&&distance[p.y+dy][p.x+dx]===distance[p.y][p.x]-1);assert(next);const[d,[dx,dy]]=next;result.push(d);p.x+=dx;p.y+=dy;}return result.slice(0,-3);
@@ -21,13 +23,13 @@ test('five candidate routes, four cactus blockers, one safe route, and increasin
   assert(route(l).length*.15<30);assert.deepEqual(core.createLevel(i),l);priorSize=l.size;priorFloor=floors;
  });assert.equal(locations.size,5);
 });
-function harness(){
+function harness(storage=memoryStorage()){
  let now=0,nextFrame,rendered;const handlers={},elements={},sounds=[];let musicStarts=0,muted=false;
  const doc={activeElement:null,hidden:false,getElementById:id=>el(id),querySelectorAll:s=>s==='.step'?Array.from({length:5},(_,i)=>el(`step-${i}`)):[],addEventListener(){}};
  function el(id){return elements[id]??={id,textContent:'',hidden:false,disabled:false,clientWidth:500,width:500,height:500,dataset:{},attrs:{},listeners:{},classList:{toggle(){},add(){},remove(){}},setAttribute(k,v){this.attrs[k]=v;},addEventListener(k,fn){this.listeners[k]=fn;},focus(){doc.activeElement=this;},getContext(){return{};}};}
  class MockImage{constructor(){this.complete=true;this.naturalWidth=1024;this.naturalHeight=1536;}addEventListener(){}}
  class MockAudio {constructor(){this.state='running';this.currentTime=0;this.destination={};}createOscillator(){return{frequency:{value:0},type:'',connect(){},start(){sounds.push({frequency:this.frequency.value,type:this.type});},stop(){}};}createGain(){return{gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}};}}
- const context={window:{GrokAudio:{start(){musicStarts++;},tone(frequency,length,type){sounds.push({frequency,type});},toggleMute(){muted=!muted;return muted;}},AudioContext:MockAudio,PotatoMaze:core,PotatoArt:{draw(_ctx,_canvas,state,actor,bot){rendered={...state,actorSource:actor?.src,botSource:bot?.src,player:{...state.player}};}},devicePixelRatio:1,addEventListener:(k,fn)=>handlers[k]=fn},document:doc,Image:MockImage,performance:{now:()=>now},requestAnimationFrame:fn=>(nextFrame=fn,1)};
+ const context={window:{GrokRuns:runs.createSelector(storage),GrokAudio:{start(){musicStarts++;},tone(frequency,length,type){sounds.push({frequency,type});},toggleMute(){muted=!muted;return muted;}},AudioContext:MockAudio,PotatoMaze:core,PotatoArt:{draw(_ctx,_canvas,state,actor,bot){rendered={...state,actorSource:actor?.src,botSource:bot?.src,player:{...state.player}};}},devicePixelRatio:1,addEventListener:(k,fn)=>handlers[k]=fn},document:doc,Image:MockImage,performance:{now:()=>now},requestAnimationFrame:fn=>(nextFrame=fn,1)};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../game.js'),'utf8'),context);
  const key=(type,value,repeat=false)=>handlers[type]({key:value,code:value,repeat,preventDefault(){},stopPropagation(){}});
  const advance=ms=>{now+=ms;const cb=nextFrame;nextFrame=null;if(cb)cb(now);};
@@ -137,4 +139,46 @@ test('the original soundtrack schedules continuously, starts once, and supports 
  for(let i=0;i<50;i++){context.currentTime+=.25;timer();}assert(notes.length>first+50,'Music must continue past its first complete phrase');
  assert.equal(window.GrokAudio.toggleMute(),true);assert.equal(gainValues.at(-1),0);
  assert.equal(window.GrokAudio.toggleMute(),false);assert.equal(gainValues.at(-1),.8);
+});
+
+test('all 15 layouts are distinct, deterministic, and retain five routes with exactly one safe route',()=>{
+ const allLayouts=new Set();
+ for(let variant=0;variant<3;variant++){
+  let previousLength=0;
+  for(let i=0;i<5;i++){
+   const level=core.createLevel(i,variant);assert.equal(level.variant,variant);assert.equal(routeCount(level),5);assert.equal(routeCount(level,level.safeGrid),1);
+   assert.equal(level.hazards.length,4);assert(level.solutionLength>previousLength);previousLength=level.solutionLength;
+   assert.deepEqual(core.createLevel(i,variant),level);allLayouts.add(JSON.stringify(level.grid));
+   const distances=core.distances(level.grid,level.start);
+   for(let y=0;y<level.size;y++)for(let x=0;x<level.size;x++)if(level.grid[y][x]===0)assert(distances[y][x]>=0);
+  }
+ }
+ assert.equal(allLayouts.size,15);
+});
+test('both new variants can finish all five levels within their 30-second limits',()=>{
+ for(const variant of [1,2]){
+  const game=harness(memoryStorage({[runs.KEY]:String(variant)}));game.click('start');
+  for(let level=0;level<5;level++){
+   assert.equal(game.rendered().maze.variant,variant);
+   for(const direction of route(core.createLevel(level,variant)))game.step(direction);
+   assert.equal(game.el('found').textContent,level+1);assert.equal(game.el('overlay').dataset.phase,'resetting');
+   assert.equal(game.el('lives').attrs['aria-label'],'3 lives');game.advance(3300);
+  }
+  assert.equal(game.el('overlay').dataset.phase,'won');
+ }
+});
+test('refresh and full restarts rotate versions, while level retries preserve the current maze',()=>{
+ const storage=memoryStorage(),first=harness(storage);
+ assert.equal(first.rendered().maze.variant,0);first.click('start');assert.equal(first.rendered().maze.variant,0);
+ const original=JSON.stringify(first.rendered().maze.grid);
+ first.step(route(first.rendered().maze)[0]);first.advance(31000);assert.equal(first.el('overlay').dataset.phase,'timeout');first.click('start');
+ assert.equal(first.rendered().maze.variant,0);assert.equal(JSON.stringify(first.rendered().maze.grid),original);
+ first.key('keydown','r');assert.equal(first.rendered().maze.variant,1);assert.notEqual(JSON.stringify(first.rendered().maze.grid),original);
+ const refreshed=harness(storage);assert.equal(refreshed.rendered().maze.variant,2);refreshed.click('start');assert.equal(refreshed.rendered().maze.variant,2);
+ const thirdPage=harness(storage);assert.equal(thirdPage.rendered().maze.variant,0);
+});
+test('the version cycle tolerates blocked or corrupt browser storage',()=>{
+ const blocked=runs.createSelector({getItem(){throw Error('blocked');},setItem(){throw Error('blocked');}});
+ assert.deepEqual([blocked.nextVariant(),blocked.nextVariant(),blocked.nextVariant(),blocked.nextVariant()],[0,1,2,0]);
+ const corrupt=runs.createSelector(memoryStorage({[runs.KEY]:'invalid'}));assert.equal(corrupt.nextVariant(),0);assert.equal(corrupt.nextVariant(),1);
 });

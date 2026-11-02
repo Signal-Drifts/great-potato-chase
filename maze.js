@@ -7,6 +7,7 @@ const levels=[
  {size:35,routes:5,seed:5119,rotation:3,mirror:false,bandHeight:7,gateCount:2,startGap:3},
  {size:39,routes:5,seed:6134,rotation:2,mirror:true,bandHeight:9,gateCount:3,startGap:0}
 ];
+const variantSeeds=[[2107,2207,2308],[3109,3214,3314],[4111,4212,4311],[5119,5219,5319],[6134,6237,6344]];
 const directions={up:[0,-1],right:[1,0],down:[0,1],left:[-1,0]};
 function canMove(grid,x,y,direction){const d=directions[direction];return !!d&&grid[y+d[1]]?.[x+d[0]]===0;}
 function distances(grid,start){
@@ -22,8 +23,10 @@ function resetDistance(level,position){
  const map=level.targetDistances||distances(level.safeGrid,level.target);
  return map[position.y]?.[position.x]??-1;
 }
-function createLevel(index){
- const config=levels[index];if(!config)throw new RangeError('Level must be 0–4.');const{size}=config;
+function createLevel(index,variant=0){
+ const base=levels[index];if(!base)throw new RangeError('Level must be 0–4.');
+ if(!Number.isInteger(variant)||variant<0||variant>2)throw new RangeError('Variant must be 0–2.');
+ const config={...base,seed:variantSeeds[index][variant],rotation:(base.rotation+variant)%4,mirror:variant===1?!base.mirror:base.mirror};const{size}=config;
  let seed=config.seed;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
  const grid=Array.from({length:size},()=>Array(size).fill(1));
  const bases=Array.from({length:5},(_,i)=>1+2*Math.round(i*(size-5)/8));
@@ -61,7 +64,7 @@ function createLevel(index){
  for(let y=0;y<size;y++)for(let x=0;x<size;x++){const p=transform({x,y});transformed[p.y][p.x]=grid[y][x];}
  const finalHazards=hazards.map(transform),safeGrid=transformed.map(row=>[...row]);finalHazards.forEach(p=>safeGrid[p.y][p.x]=1);
  const finalStart=transform(start),finalTarget=transform(target),distance=distances(safeGrid,finalStart);
- return{...config,levelIndex:index,grid:transformed,safeGrid,start:finalStart,target:finalTarget,hazards:finalHazards,gates:gates.map(transform),targetDistances:distances(safeGrid,finalTarget),solutionLength:distance[finalTarget.y][finalTarget.x]};
+ return{...config,variant,levelIndex:index,grid:transformed,safeGrid,start:finalStart,target:finalTarget,hazards:finalHazards,gates:gates.map(transform),targetDistances:distances(safeGrid,finalTarget),solutionLength:distance[finalTarget.y][finalTarget.x]};
 }
-return{levels,directions,canMove,distances,pathBetween,isGateOpen,resetDistance,createLevel};
+return{levels,variantSeeds,directions,canMove,distances,pathBetween,isGateOpen,resetDistance,createLevel};
 });

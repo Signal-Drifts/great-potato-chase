@@ -6,6 +6,7 @@
   const portrait=new Image();portrait.src='tibo.png';
   const botPortrait=new Image();botPortrait.src='grok.png';
   const STEP_TIME=.135,TRANSITION_TIME=3.1,LEVEL_TIME=30;
+  let variant=window.GrokRuns.nextVariant(),hasStartedRun=false;
   let levelIndex=0,found=0,lives=3,remaining=LEVEL_TIME,maze,player,previous,visited;
   let phase='intro',paused=false,awaitingMove=true,last=performance.now(),budget=0;
   let transitionElapsed=0,movedAt=-1000,lastDirection='right',sound=true;
@@ -36,13 +37,14 @@
     $('overlay-title').textContent=title;$('start').textContent=symbol;$('start').setAttribute('aria-label',label);
   }
   function prepareLevel() {
-    maze=core.createLevel(levelIndex);player={...maze.start};previous={...player};visited=new Set([`${player.x},${player.y}`]);
+    maze=core.createLevel(levelIndex,variant);player={...maze.start};previous={...player};visited=new Set([`${player.x},${player.y}`]);
     remaining=LEVEL_TIME;budget=STEP_TIME;keys.clear();awaitingMove=true;paused=false;phase='playing';movedAt=-1000;hurtElapsed=0;footsteps=0;
     overlay.hidden=true;overlay.dataset.pressState='idle';overlay.classList.remove('resetting','pranked');
     updateHUD();announce(`Level ${levelIndex+1}. Five routes, four cactus traps, one safe route. 30 seconds. Grok is visible. Move to start.`);resize();focusGame();last=performance.now();
   }
   function reset() {
-    window.GrokAudio.start();levelIndex=0;found=0;lives=3;$('host').classList.remove('pressing');prepareLevel();beep(520);
+    if(hasStartedRun)variant=window.GrokRuns.nextVariant();
+    hasStartedRun=true;window.GrokAudio.start();levelIndex=0;found=0;lives=3;$('host').classList.remove('pressing');prepareLevel();beep(520);
   }
   function primaryAction() {
     if(paused)togglePause();
@@ -150,5 +152,5 @@
   window.addEventListener('blur',()=>{keys.clear();if(phase==='playing'&&!paused)togglePause();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden&&phase==='playing'&&!paused)togglePause();});
   window.addEventListener('resize',resize);portrait.addEventListener('load',()=>draw(performance.now()));botPortrait.addEventListener('load',()=>draw(performance.now()));
-  maze=core.createLevel(0);player={...maze.start};previous={...player};visited=new Set();updateHUD();resize();requestAnimationFrame(tick);
+  maze=core.createLevel(0,variant);player={...maze.start};previous={...player};visited=new Set();updateHUD();resize();requestAnimationFrame(tick);
 })();
