@@ -246,3 +246,10 @@ test('the recorded crying asset decodes, plays once, respects mute, and stops cl
  window.GrokAudio.toggleMute();assert.equal(window.GrokAudio.cry(),true);assert.equal(sourceNodes.length,2);
  const bytes=fs.readFileSync(path.join(__dirname,'../crying.wav'));assert.equal(bytes.toString('ascii',0,4),'RIFF');assert.equal(bytes.toString('ascii',8,12),'WAVE');assert(bytes.length>100000&&bytes.length<300000);
 });
+
+test('leaving the game before the button lands prevents a delayed crying sound',()=>{
+ const game=harness();game.click('start');for(const d of route(game.rendered().maze))game.step(d);
+ game.blur();game.advance(600);assert.equal(game.cryCount(),0);assert.equal(game.musicActive(),false);
+ const hidden=harness();hidden.click('start');for(const d of route(hidden.rendered().maze))hidden.step(d);
+ hidden.doc.hidden=true;hidden.advance(600);assert.equal(hidden.cryCount(),0);
+});

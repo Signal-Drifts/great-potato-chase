@@ -12,7 +12,7 @@
   let levelIndex=startingLevel,found=0,lives=3,remaining=levelDuration,maze,player,previous,visited;
   let phase='intro',paused=false,awaitingMove=true,last=performance.now(),budget=0;
   let transitionElapsed=0,movedAt=-1000,lastDirection='right',sound=true;
-  let hurtElapsed=0,footsteps=0,lastBump=-1000,resetClicked=false;
+  let hurtElapsed=0,footsteps=0,lastBump=-1000,resetClicked=false,pageActive=true;
   const focusGame=()=>arena.focus({preventScroll:true});
   const announce=text=>$('announcements').textContent=text;
   function syncAudio(){window.GrokAudio.setActive(phase==='playing'&&!paused&&!awaitingMove&&!document.hidden);}
@@ -99,7 +99,7 @@
       if(hurtElapsed>=.65){player={...maze.start};previous={...player};movedAt=-1000;phase='playing';keys.clear();budget=STEP_TIME;}
     }else if(phase==='resetting') {
       transitionElapsed+=elapsed;
-      if(!resetClicked&&transitionElapsed>=.55){resetClicked=true;beep(80,.05,'square',.05);if(sound)window.GrokAudio.cry();}
+      if(!resetClicked&&transitionElapsed>=.55){resetClicked=true;beep(80,.05,'square',.05);if(sound&&pageActive&&!document.hidden)window.GrokAudio.cry();}
       if(transitionElapsed>=.85)overlay.dataset.pressState='down';
       if(transitionElapsed>=TRANSITION_TIME){$('host').classList.remove('pressing');if(levelIndex===core.levels.length-1)finishGame();else{levelIndex++;prepareLevel();}}
     }else if(phase==='playing'&&!paused) {
@@ -154,7 +154,8 @@
   });
   function endDrag(){if(touchDirection)keys.delete(touchDirection);touchDirection=null;drag=null;}
   for(const event of ['pointerup','pointercancel','lostpointercapture'])arena.addEventListener(event,endDrag);
-  window.addEventListener('blur',()=>{window.GrokAudio.stopCry();keys.clear();if(phase==='playing'&&!paused)togglePause();});
+  window.addEventListener('focus',()=>{pageActive=true;});
+  window.addEventListener('blur',()=>{pageActive=false;window.GrokAudio.stopCry();keys.clear();if(phase==='playing'&&!paused)togglePause();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden)window.GrokAudio.stopCry();if(document.hidden&&phase==='playing'&&!paused)togglePause();});
   window.addEventListener('resize',resize);portrait.addEventListener('load',()=>draw(performance.now()));botPortrait.addEventListener('load',()=>draw(performance.now()));
   maze=core.createLevel(startingLevel,variant);player={...maze.start};previous={...player};visited=new Set();updateHUD();showOverlay(`${String(startingLevel+1).padStart(2,'0')} / 05`,'intro','▶',`Play level ${startingLevel+1}`);resize();requestAnimationFrame(tick);
