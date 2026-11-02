@@ -1,21 +1,20 @@
 # Tibo × Poteto — The Fry Maze
 
-Tibo hides a fry. Poteto has 45 seconds to reach it.
+Tibo hides one visible fry in each of five different garden mazes.
 
-- Five garden mazes grow from 15×15 to 31×31 cells.
-- Level 1 has exactly three distinct routes to the fry. Later levels have four, five, six, and seven routes, plus increasing dead ends.
-- The fry is always visible. Poteto has no colored marker beneath her feet.
-- Finding a fry makes Tibo reset the board and hide the next fry automatically.
-- Finishing all five levels makes Tibo surrender.
-- Each level starts with 45 seconds. The timer waits for the first successful move.
-- Three tries are shared across the game. A timeout costs one; retrying preserves completed levels.
+- Each level has five candidate routes. Four contain cactus monsters, leaving exactly one safe route.
+- Layouts grow from 23×23 to 39×39, rotate and change shape, and place the fry in a different position in every level.
+- The safe path grows from 54 moves in Level 1 to 142 in Level 5. Later levels add more dead ends and timed gates.
+- Gates alternate between open and closed. Poteto must wait for them to open.
+- Touching a cactus costs one of three shared lives and returns Poteto to the entrance. Her remaining level time is preserved.
+- Each level allows 45 seconds, starting on the first successful move. Pausing or switching tabs freezes the timer.
+- Finding a fry makes Tibo automatically hide the next one. Completing all five levels makes Tibo surrender.
+- The fry is always visible. There is no colored circle beneath Poteto.
 
-Arrow keys or WASD to move. Enter to start or retry. P or Escape to pause. Touch controls work on phones.
-Sound can be muted with the speaker icon. Switching tabs pauses play.
+Arrow keys or WASD move. Enter starts or retries. P or Escape pauses. Touch controls are supported.
+Footsteps, wall bumps, gates, cactus contact, and collection have sound effects. Use the speaker icon to mute them.
+The UI uses icons and essential counters only, with descriptive labels for assistive technology.
 
-The UI uses icon controls. Labels and instructions for assistive technology are not visible on the board.
-Garden artwork is drawn directly in canvas. The character assets use the supplied reference pictures.
+Run `node --test tests/maze.test.cjs` for connectivity, route counts, hazards, gates, sound events, timers, retries, and the complete five-level surrender flow.
 
-Run `node --test tests/maze.test.cjs` for route counts, connectivity, always-visible fry rendering, timers, retries, and the full five-level surrender flow.
-
-Open index.html locally or serve with any static HTTP server. GitHub Pages serves the root of main. All paths are relative.
+Open index.html in a browser or serve this directory with a static HTTP server. GitHub Pages serves the root of main.

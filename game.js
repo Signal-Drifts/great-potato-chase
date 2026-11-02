@@ -8,16 +8,17 @@
   let levelIndex=0,found=0,lives=3,remaining=45,maze,player,previous,visited;
   let phase='intro',paused=false,awaitingMove=true,last=performance.now(),budget=0;
   let transitionElapsed=0,movedAt=-1000,lastDirection='right',sound=true,audio;
+  let hurtElapsed=0,footsteps=0,lastBump=-1000;
   const focusGame=()=>arena.focus({preventScroll:true});
   const announce=text=>$('announcements').textContent=text;
-  function beep(frequency,length=.12) {
+  function beep(frequency,length=.12,wave='triangle',volume=.055) {
     if(!sound)return;
     try {
       audio??=new(window.AudioContext||window.webkitAudioContext)();
       if(audio.state==='suspended')audio.resume();
       const osc=audio.createOscillator(),gain=audio.createGain();
-      osc.type='triangle';osc.frequency.value=frequency;osc.connect(gain);gain.connect(audio.destination);
-      gain.gain.setValueAtTime(.055,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audio.currentTime+length);
+      osc.type=wave;osc.frequency.value=frequency;osc.connect(gain);gain.connect(audio.destination);
+      gain.gain.setValueAtTime(volume,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audio.currentTime+length);
       osc.start();osc.stop(audio.currentTime+length);
     }catch(_){/* Sound is optional. */}
   }
@@ -30,7 +31,7 @@
   function draw(now) {
     const progress=Math.min(1,(now-movedAt)/(STEP_TIME*1000));
     window.PotatoArt.draw(ctx,canvas,{maze,player,previous,progress,visited,time:now/1000,
-      moving:phase==='playing'&&!paused&&progress<1,celebrate:phase==='won'},portrait);
+      moving:phase==='playing'&&!paused&&progress<1,celebrate:phase==='won',elapsed:45-remaining,hurt:phase==='hit'},portrait);
   }
   function resize() {
     const width=Math.max(1,arena.clientWidth),ratio=Math.min(window.devicePixelRatio||1,3);
@@ -44,10 +45,10 @@
   }
   function prepareLevel() {
     maze=core.createLevel(levelIndex);player={...maze.start};previous={...player};visited=new Set([`${player.x},${player.y}`]);
-    remaining=45;budget=STEP_TIME;keys.clear();awaitingMove=true;paused=false;phase='playing';movedAt=-1000;
+    remaining=45;budget=STEP_TIME;keys.clear();awaitingMove=true;paused=false;phase='playing';movedAt=-1000;hurtElapsed=0;footsteps=0;
     overlay.hidden=true;overlay.classList.remove('transition','surrendered');$('pause').disabled=false;
     $('pause').setAttribute('aria-label','Pause');$('pause-icon').innerHTML='<path d="M8 5v14M16 5v14"/>';
-    updateHUD();announce(`Level ${levelIndex+1}. ${maze.routes} routes. 45 seconds. The fry is visible. Move to start.`);resize();focusGame();last=performance.now();
+    updateHUD();announce(`Level ${levelIndex+1}. Five routes, four cactus traps, one safe route. 45 seconds. The fry is visible. Move to start.`);resize();focusGame();last=performance.now();
   }
   function reset() {
     levelIndex=0;found=0;lives=3;$('host').classList.remove('surrendered');prepareLevel();beep(520);
@@ -73,15 +74,32 @@
     showOverlay(lives?'⏱':'♡ ♡ ♡',phase,'↻',lives?'Retry level':'Restart game');
     announce(lives?`Time is up. ${lives} tries left. Retry this maze.`:'No tries left. Restart to play again.');beep(160,.3);
   }
+  function bump(now,gate=false) {
+    if(now-lastBump>180){beep(gate?175:65,.055,'sine',.03);lastBump=now;}
+  }
+  function hitTrap(hazard,now) {
+    lives--;keys.clear();updateHUD();previous={...player};player={x:hazard.x,y:hazard.y};movedAt=now;
+    beep(85,.24,'sawtooth',.055);
+    if(lives===0){phase='lost';showOverlay('♡ ♡ ♡','lost','↻','Restart game');announce('A cactus caught Poteto. No lives left.');}
+    else{phase='hit';hurtElapsed=0;announce(`A cactus caught Poteto. ${lives} lives left.`);}
+  }
   function move(direction,now) {
-    if(!core.canMove(maze.grid,player.x,player.y,direction))return false;
-    previous={...player};const[dx,dy]=core.directions[direction];player.x+=dx;player.y+=dy;
-    movedAt=now;awaitingMove=false;visited.add(`${player.x},${player.y}`);
+    if(!core.canMove(maze.grid,player.x,player.y,direction)){bump(now);return false;}
+    const[dx,dy]=core.directions[direction],nx=player.x+dx,ny=player.y+dy;
+    const hazard=maze.hazards.find(p=>p.x===nx&&p.y===ny);
+    if(hazard){hitTrap(hazard,now);return false;}
+    const gate=maze.gates.find(p=>p.x===nx&&p.y===ny);
+    if(gate&&!core.isGateOpen(gate,45-remaining)){bump(now,true);return false;}
+    previous={...player};player.x=nx;player.y=ny;movedAt=now;awaitingMove=false;
+    visited.add(`${player.x},${player.y}`);beep(100+(footsteps++%2)*35,.035,'triangle',.025);
     if(player.x===maze.target.x&&player.y===maze.target.y)completeLevel();return true;
   }
   function tick(now) {
     const elapsed=Math.max(0,(now-last)/1000);last=now;
-    if(phase==='transition') {
+    if(phase==='hit') {
+      hurtElapsed+=elapsed;
+      if(hurtElapsed>=.65){player={...maze.start};previous={...player};movedAt=-1000;phase='playing';keys.clear();budget=STEP_TIME;}
+    }else if(phase==='transition') {
       transitionElapsed+=elapsed;
       if(transitionElapsed>=TRANSITION_TIME){levelIndex++;prepareLevel();}
     }else if(phase==='playing'&&!paused) {
