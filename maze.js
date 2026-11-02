@@ -18,6 +18,10 @@ function pathBetween(grid,start,target){
  while(p.x!==target.x||p.y!==target.y){const next=Object.values(directions).find(([dx,dy])=>grid[p.y+dy]?.[p.x+dx]===0&&d[p.y+dy][p.x+dx]===d[p.y][p.x]-1);p.x+=next[0];p.y+=next[1];out.push({...p});}return out;
 }
 function isGateOpen(gate,elapsed){return((elapsed+gate.phase)%gate.period)<gate.openFor;}
+function resetDistance(level,position){
+ const map=level.targetDistances||distances(level.safeGrid,level.target);
+ return map[position.y]?.[position.x]??-1;
+}
 function createLevel(index){
  const config=levels[index];if(!config)throw new RangeError('Level must be 0–4.');const{size}=config;
  let seed=config.seed;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
@@ -57,7 +61,7 @@ function createLevel(index){
  for(let y=0;y<size;y++)for(let x=0;x<size;x++){const p=transform({x,y});transformed[p.y][p.x]=grid[y][x];}
  const finalHazards=hazards.map(transform),safeGrid=transformed.map(row=>[...row]);finalHazards.forEach(p=>safeGrid[p.y][p.x]=1);
  const finalStart=transform(start),finalTarget=transform(target),distance=distances(safeGrid,finalStart);
- return{...config,levelIndex:index,grid:transformed,safeGrid,start:finalStart,target:finalTarget,hazards:finalHazards,gates:gates.map(transform),solutionLength:distance[finalTarget.y][finalTarget.x]};
+ return{...config,levelIndex:index,grid:transformed,safeGrid,start:finalStart,target:finalTarget,hazards:finalHazards,gates:gates.map(transform),targetDistances:distances(safeGrid,finalTarget),solutionLength:distance[finalTarget.y][finalTarget.x]};
 }
-return{levels,directions,canMove,distances,pathBetween,isGateOpen,createLevel};
+return{levels,directions,canMove,distances,pathBetween,isGateOpen,resetDistance,createLevel};
 });

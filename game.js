@@ -3,8 +3,9 @@
   const $=id=>document.getElementById(id),core=window.PotatoMaze;
   const arena=$('arena'),canvas=$('maze'),ctx=canvas.getContext('2d');
   const overlay=$('overlay'),steps=[...document.querySelectorAll('.step')],keys=new Set();
-  const portrait=new Image();portrait.src='poteto.png';
-  const STEP_TIME=.135,TRANSITION_TIME=1.15;
+  const portrait=new Image();portrait.src='tibo.png';
+  const botPortrait=new Image();botPortrait.src='grok.png';
+  const STEP_TIME=.135,TRANSITION_TIME=3.1;
   let levelIndex=0,found=0,lives=3,remaining=45,maze,player,previous,visited;
   let phase='intro',paused=false,awaitingMove=true,last=performance.now(),budget=0;
   let transitionElapsed=0,movedAt=-1000,lastDirection='right',sound=true,audio;
@@ -31,7 +32,7 @@
   function draw(now) {
     const progress=Math.min(1,(now-movedAt)/(STEP_TIME*1000));
     window.PotatoArt.draw(ctx,canvas,{maze,player,previous,progress,visited,time:now/1000,
-      moving:phase==='playing'&&!paused&&progress<1,celebrate:phase==='won',elapsed:45-remaining,hurt:phase==='hit'},portrait);
+      moving:phase==='playing'&&!paused&&progress<1,celebrate:phase==='won',elapsed:45-remaining,hurt:phase==='hit',crying:phase==='resetting'},portrait,botPortrait);
   }
   function resize() {
     const width=Math.max(1,arena.clientWidth),ratio=Math.min(window.devicePixelRatio||1,3);
@@ -39,19 +40,19 @@
   }
   function showOverlay(title,type,symbol='▶',label='Play') {
     overlay.hidden=false;overlay.dataset.phase=type;
-    overlay.classList.toggle('transition',type==='transition');overlay.classList.toggle('surrendered',type==='won');
+    overlay.classList.toggle('resetting',type==='resetting');overlay.classList.toggle('pranked',type==='won');
     $('overlay-title').textContent=title;$('start').textContent=symbol;$('start').setAttribute('aria-label',label);
     $('pause').disabled=type!=='paused';
   }
   function prepareLevel() {
     maze=core.createLevel(levelIndex);player={...maze.start};previous={...player};visited=new Set([`${player.x},${player.y}`]);
     remaining=45;budget=STEP_TIME;keys.clear();awaitingMove=true;paused=false;phase='playing';movedAt=-1000;hurtElapsed=0;footsteps=0;
-    overlay.hidden=true;overlay.classList.remove('transition','surrendered');$('pause').disabled=false;
+    overlay.hidden=true;overlay.classList.remove('resetting','pranked');$('pause').disabled=false;
     $('pause').setAttribute('aria-label','Pause');$('pause-icon').innerHTML='<path d="M8 5v14M16 5v14"/>';
-    updateHUD();announce(`Level ${levelIndex+1}. Five routes, four cactus traps, one safe route. 45 seconds. The fry is visible. Move to start.`);resize();focusGame();last=performance.now();
+    updateHUD();announce(`Level ${levelIndex+1}. Five routes, four cactus traps, one safe route. 45 seconds. Grok is visible. Move to start.`);resize();focusGame();last=performance.now();
   }
   function reset() {
-    levelIndex=0;found=0;lives=3;$('host').classList.remove('surrendered');prepareLevel();beep(520);
+    levelIndex=0;found=0;lives=3;$('host').classList.remove('pressing');prepareLevel();beep(520);
   }
   function primaryAction() {
     if(paused)togglePause();
@@ -59,15 +60,14 @@
     else if(['intro','won','lost'].includes(phase))reset();
   }
   function completeLevel() {
-    found++;keys.clear();updateHUD();beep(850,.25);
-    if(found===5) {
-      phase='won';$('host').classList.add('surrendered');
-      showOverlay('Tibo surrenders','won','↻','Play again');announce('All five levels complete. Tibo surrenders. Poteto wins!');
-    }else {
-      phase='transition';transitionElapsed=0;
-      showOverlay(`${String(levelIndex+2).padStart(2,'0')} / 05`,'transition');
-      announce(`Fry found. Tibo is hiding the next fry in level ${levelIndex+2}.`);
-    }
+    found++;keys.clear();updateHUD();transitionElapsed=0;phase='resetting';
+    $('host').classList.add('pressing');showOverlay('RESET!','resetting');
+    announce('Tibo is three blocks from Grok. Poteto presses Reset. Tibo starts crying.');
+    beep(180,.22,'sawtooth',.045);
+  }
+  function finishGame() {
+    phase='won';showOverlay('Poteto wins','won','↻','Play again');
+    announce('Five levels, five resets. Tibo never captured Grok Bot. Poteto wins.');
   }
   function timeout() {
     remaining=0;lives--;keys.clear();updateHUD();phase=lives?'timeout':'lost';
@@ -80,8 +80,8 @@
   function hitTrap(hazard,now) {
     lives--;keys.clear();updateHUD();previous={...player};player={x:hazard.x,y:hazard.y};movedAt=now;
     beep(85,.24,'sawtooth',.055);
-    if(lives===0){phase='lost';showOverlay('♡ ♡ ♡','lost','↻','Restart game');announce('A cactus caught Poteto. No lives left.');}
-    else{phase='hit';hurtElapsed=0;announce(`A cactus caught Poteto. ${lives} lives left.`);}
+    if(lives===0){phase='lost';showOverlay('♡ ♡ ♡','lost','↻','Restart game');announce('A cactus caught Tibo. No lives left.');}
+    else{phase='hit';hurtElapsed=0;announce(`A cactus caught Tibo. ${lives} lives left.`);}
   }
   function move(direction,now) {
     if(!core.canMove(maze.grid,player.x,player.y,direction)){bump(now);return false;}
@@ -92,16 +92,17 @@
     if(gate&&!core.isGateOpen(gate,45-remaining)){bump(now,true);return false;}
     previous={...player};player.x=nx;player.y=ny;movedAt=now;awaitingMove=false;
     visited.add(`${player.x},${player.y}`);beep(100+(footsteps++%2)*35,.035,'triangle',.025);
-    if(player.x===maze.target.x&&player.y===maze.target.y)completeLevel();return true;
+    const distance=core.resetDistance(maze,player);
+    if(distance>=0&&distance<=3)completeLevel();return true;
   }
   function tick(now) {
     const elapsed=Math.max(0,(now-last)/1000);last=now;
     if(phase==='hit') {
       hurtElapsed+=elapsed;
       if(hurtElapsed>=.65){player={...maze.start};previous={...player};movedAt=-1000;phase='playing';keys.clear();budget=STEP_TIME;}
-    }else if(phase==='transition') {
+    }else if(phase==='resetting') {
       transitionElapsed+=elapsed;
-      if(transitionElapsed>=TRANSITION_TIME){levelIndex++;prepareLevel();}
+      if(transitionElapsed>=TRANSITION_TIME){$('host').classList.remove('pressing');if(found===5)finishGame();else{levelIndex++;prepareLevel();}}
     }else if(phase==='playing'&&!paused) {
       if(!awaitingMove){remaining-=elapsed;if(remaining<=0)timeout();else updateHUD();}
       if(phase==='playing') {
@@ -150,6 +151,6 @@
   arena.addEventListener('pointerdown',e=>{if(!e.target.closest('button'))focusGame();});
   window.addEventListener('blur',()=>{keys.clear();if(phase==='playing'&&!paused)togglePause();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden&&phase==='playing'&&!paused)togglePause();});
-  window.addEventListener('resize',resize);portrait.addEventListener('load',()=>draw(performance.now()));
+  window.addEventListener('resize',resize);portrait.addEventListener('load',()=>draw(performance.now()));botPortrait.addEventListener('load',()=>draw(performance.now()));
   maze=core.createLevel(0);player={...maze.start};previous={...player};visited=new Set();updateHUD();resize();requestAnimationFrame(tick);
 })();

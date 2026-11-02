@@ -36,26 +36,27 @@
     ctx.fillStyle=open?'#b9e0a0':'#edaa73';ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=tile*.16;
     ctx.beginPath();ctx.arc(-w/2,-tile*.36,tile*.06,0,Math.PI*2);ctx.arc(w/2,-tile*.36,tile*.06,0,Math.PI*2);ctx.fill();ctx.restore();
   }
-  function fry(ctx,x,y,tile,time) {
-    const scale=tile/38,bob=Math.sin(time*3)*2*scale;
+  function eyeOffset(time){return{x:Math.sin(time*2)*.055,y:Math.cos(time*2)*.055};}
+  function bot(ctx,x,y,tile,time,image) {
+    const height=tile*1.5,bob=Math.sin(time*2.5)*tile*.04;
     ctx.save();ctx.translate(x,y+bob);
-    const halo=ctx.createRadialGradient(0,0,0,0,0,tile*1.05);
-    halo.addColorStop(0,'#fff5ae99');halo.addColorStop(1,'#fff5ae00');ctx.fillStyle=halo;
-    ctx.fillRect(-tile*1.1,-tile*1.1,tile*2.2,tile*2.2);
-    ctx.scale(scale,scale);ctx.lineWidth=1;
-    for(let i=0;i<6;i++) {
-      ctx.save();ctx.translate(-12+i*4,-3);ctx.rotate((i-2.5)*.065);
-      ctx.fillStyle=gradient(ctx,0,-19,5,24,[[0,'#fff1a3'],[.45,'#ffc44b'],[1,'#d38521']]);
-      rounded(ctx,0,-19-(i%3)*2,4.8,27,1.1);ctx.fill();
-      ctx.fillStyle='#fff5ba';ctx.fillRect(.7,-17-(i%3)*2,1,17);ctx.restore();
+    const halo=ctx.createRadialGradient(0,0,0,0,0,height*.8);
+    halo.addColorStop(0,'#c6e9fa99');halo.addColorStop(1,'#c6e9fa00');ctx.fillStyle=halo;
+    ctx.fillRect(-height,-height,height*2,height*2);
+    if(image&&image.complete&&image.naturalWidth>0){
+      const width=height*image.naturalWidth/image.naturalHeight;ctx.drawImage(image,-width/2,-height/2,width,height);
+    }else{
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(0,height*.06,height*.42,height*.39,-.1,0,Math.PI*2);ctx.fill();
     }
-    ctx.fillStyle=gradient(ctx,-15,0,30,23,[[0,'#ff7960'],[.5,'#df493d'],[1,'#a62a2b']]);
-    ctx.beginPath();ctx.moveTo(-15,-1);ctx.quadraticCurveTo(0,6,15,-1);ctx.lineTo(11,20);ctx.quadraticCurveTo(0,25,-11,20);ctx.closePath();ctx.fill();
-    ctx.strokeStyle='#ffb097';ctx.beginPath();ctx.moveTo(-12,4);ctx.lineTo(-9,18);ctx.stroke();
-    ctx.fillStyle='#ffe9a0';ctx.beginPath();ctx.ellipse(0,12,5,6,-.15,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#d3a24e';ctx.beginPath();ctx.arc(-1,11,1,0,Math.PI*2);ctx.arc(2,14,.7,0,Math.PI*2);ctx.fill();ctx.restore();
+    const gaze=eyeOffset(time);
+    ctx.fillStyle='#151719';
+    for(const eye of[-.16,.06]){
+      ctx.save();ctx.translate((eye+gaze.x)*height,(-.075+gaze.y)*height);ctx.rotate(.28);
+      ctx.beginPath();ctx.ellipse(0,0,height*.035,height*.081,0,0,Math.PI*2);ctx.fill();ctx.restore();
+    }
+    ctx.restore();
   }
-  function draw(ctx,canvas,state,portrait) {
+  function draw(ctx,canvas,state,portrait,botPortrait) {
     const {maze,player,visited,time=0,moving=false,previous=player,progress=1,celebrate=false}=state;
     if(!maze)return;
     const size=canvas.width,tile=size/maze.size;
@@ -101,8 +102,8 @@
     }
     for(const gate of maze.gates||[])gateArt(ctx,(gate.x+.5)*tile,(gate.y+.5)*tile,tile,root.PotatoMaze.isGateOpen(gate,state.elapsed||0),time);
     for(const monster of maze.hazards||[])cactus(ctx,(monster.x+.5)*tile,(monster.y+.5)*tile,Math.max(tile,size/24),time);
-    // The fry is visible on every frame, at every distance.
-    fry(ctx,(maze.target.x+.5)*tile,(maze.target.y+.5)*tile,Math.max(tile,size/19),time);
+    // Grok stays visible, with continuously rolling eyes.
+    bot(ctx,(maze.target.x+.5)*tile,(maze.target.y+.5)*tile,Math.max(tile,size/19),time,botPortrait);
     const ease=1-Math.pow(1-Math.min(1,progress),3);
     const px=previous.x+(player.x-previous.x)*ease,py=previous.y+(player.y-previous.y)*ease;
     const cx=(px+.5)*tile,cy=(py+.5)*tile;
@@ -111,7 +112,15 @@
       const bob=moving?Math.sin(time*23)*tile*.035:0;
       ctx.save();ctx.translate(cx,cy+bob);ctx.rotate(moving?Math.sin(time*18)*.035:0);
       ctx.shadowColor='#142f3455';ctx.shadowBlur=tile*.07;ctx.shadowOffsetY=tile*.03;
-      ctx.drawImage(portrait,-width/2,-height*.77,width,height);ctx.restore();
+      ctx.drawImage(portrait,-width/2,-height*.77,width,height);
+      if(state.crying){
+        ctx.fillStyle='#5fc3f5';
+        for(let i=0;i<4;i++){
+          const drop=(time*2+i*.25)%1,x=(i%2?1:-1)*width*.18,y=-height*.59+drop*height*.33;
+          ctx.beginPath();ctx.ellipse(x,y,width*.045,width*.08,0,0,Math.PI*2);ctx.fill();
+        }
+      }
+      ctx.restore();
     }
     if(celebrate)for(let i=0;i<18;i++) {
       const a=time*(.4+i*.025)+i*2.399,r=size*(.12+(i%5)*.05);
@@ -122,5 +131,5 @@
     const vignette=ctx.createRadialGradient(size*.5,size*.4,size*.2,size*.5,size*.5,size*.72);
     vignette.addColorStop(0,'#173c2e00');vignette.addColorStop(1,'#173c2e38');ctx.fillStyle=vignette;ctx.fillRect(0,0,size,size);
   }
-  root.PotatoArt={draw};
+  root.PotatoArt={draw,eyeOffset};
 })(window);
